@@ -1,36 +1,55 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="h-full">
     <head>
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
 
-        <title>{{ config('app.name', 'Laravel') }}</title>
+        <title>{{ config('app.name', 'Server Room Supervision') }}</title>
 
-        <!-- Fonts -->
-        <link rel="preconnect" href="https://fonts.bunny.net">
-        <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
+        <script>
+            (function () {
+                localStorage.removeItem('server-room-theme');
+                localStorage.removeItem('theme');
 
-        <!-- Scripts -->
+                const savedTheme = localStorage.getItem('tailadmin-theme-v1');
+                const theme = savedTheme || 'light';
+
+                if (theme === 'dark') {
+                    document.documentElement.classList.add('dark');
+                    document.documentElement.style.colorScheme = 'dark';
+                } else {
+                    document.documentElement.classList.remove('dark');
+                    document.documentElement.style.colorScheme = 'light';
+                }
+            })();
+        </script>
+
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
-    <body class="font-sans antialiased">
-        <div class="min-h-screen bg-gray-100">
-            @include('layouts.navigation')
+    <body
+        class="app-shell"
+        x-data="{ profileOpen: false }"
+        x-init="$store.theme.init(); $store.sidebar.sync(); window.addEventListener('resize', () => $store.sidebar.sync())"
+    >
+        <div class="min-h-screen lg:flex">
+            @include('layouts.sidebar')
 
-            <!-- Page Heading -->
-            @isset($header)
-                <header class="bg-white shadow">
-                    <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-                        {{ $header }}
+            <div class="flex min-h-screen flex-1 flex-col lg:pl-[290px]">
+                @include('layouts.topbar')
+
+                <main class="flex-1 px-4 pb-8 pt-4 sm:px-6 lg:px-8">
+                    @isset($header)
+                        <section class="mb-6">
+                            {{ $header }}
+                        </section>
+                    @endisset
+
+                    <div class="space-y-6">
+                        {{ $slot }}
                     </div>
-                </header>
-            @endisset
-
-            <!-- Page Content -->
-            <main>
-                {{ $slot }}
-            </main>
+                </main>
+            </div>
         </div>
     </body>
 </html>

@@ -1,4 +1,14 @@
 <x-guest-layout>
+    <div class="mb-8">
+        <p class="app-section-title">Onboarding</p>
+        <h1 class="mt-2 font-display text-3xl font-semibold tracking-tight text-gray-900 dark:text-white">
+            Create account
+        </h1>
+        <p class="mt-3 text-sm leading-7 text-gray-500 dark:text-gray-400">
+            Register your department account with a valid <span class="font-semibold">@draxmailer</span> email address.
+        </p>
+    </div>
+
     <form method="POST" action="{{ route('register') }}">
         @csrf
 
@@ -19,7 +29,7 @@
             <select
                 id="department"
                 name="department"
-                class="block mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                class="app-select mt-1 block w-full"
                 required
             >
                 <option value="">Select a department</option>
@@ -36,7 +46,7 @@
             <select
                 id="role"
                 name="role"
-                class="block mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                class="app-select mt-1 block w-full"
                 required
             >
                 <option value="">Select a role</option>
@@ -58,12 +68,12 @@
             <x-input-error :messages="$errors->get('password_confirmation')" class="mt-2" />
         </div>
 
-        <div class="flex items-center justify-end mt-4">
-            <a class="underline text-sm text-gray-600 hover:text-gray-900 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" href="{{ route('login') }}">
+        <div class="mt-6 flex items-center justify-between gap-4">
+            <a class="app-link" href="{{ route('login') }}">
                 {{ __('Already registered?') }}
             </a>
 
-            <x-primary-button class="ms-4">
+            <x-primary-button>
                 {{ __('Register') }}
             </x-primary-button>
         </div>

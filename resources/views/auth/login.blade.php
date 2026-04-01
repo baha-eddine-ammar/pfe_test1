@@ -1,6 +1,15 @@
 <x-guest-layout>
-    <!-- Session Status -->
-    <x-auth-session-status class="mb-4" :status="session('status')" />
+    <div class="mb-8">
+        <p class="app-section-title">Authentication</p>
+        <h1 class="mt-2 font-display text-3xl font-semibold tracking-tight text-gray-900 dark:text-white">
+            Sign in
+        </h1>
+        <p class="mt-3 text-sm leading-7 text-gray-500 dark:text-gray-400">
+            Access your monitoring workspace with your approved account.
+        </p>
+    </div>
+
+    <x-auth-session-status class="mb-6" :status="session('status')" />
 
     <form method="POST" action="{{ route('login') }}">
         @csrf
@@ -25,23 +34,28 @@
         </div>
 
         <!-- Remember Me -->
-        <div class="block mt-4">
+        <div class="mt-5 block">
             <label for="remember_me" class="inline-flex items-center">
-                <input id="remember_me" type="checkbox" class="rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500" name="remember">
-                <span class="ms-2 text-sm text-gray-600">{{ __('Remember me') }}</span>
+                <input id="remember_me" type="checkbox" class="app-checkbox" name="remember">
+                <span class="ms-2 text-sm text-gray-600 dark:text-gray-300">{{ __('Remember me') }}</span>
             </label>
         </div>
 
-        <div class="flex items-center justify-end mt-4">
+        <div class="mt-6 flex items-center justify-between gap-4">
             @if (Route::has('password.request'))
-                <a class="underline text-sm text-gray-600 hover:text-gray-900 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" href="{{ route('password.request') }}">
+                <a class="app-link" href="{{ route('password.request') }}">
                     {{ __('Forgot your password?') }}
                 </a>
             @endif
 
-            <x-primary-button class="ms-3">
+            <x-primary-button>
                 {{ __('Log in') }}
             </x-primary-button>
         </div>
+
+        <p class="mt-6 text-sm text-gray-500 dark:text-gray-400">
+            Need an account?
+            <a href="{{ route('register') }}" class="app-link">Create one</a>
+        </p>
     </form>
 </x-guest-layout>
