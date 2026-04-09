@@ -46,7 +46,6 @@
                 </div>
             @endif
         </div>
-
         <div class="flex items-center gap-4">
             <x-primary-button>{{ __('Save') }}</x-primary-button>
 
@@ -55,4 +54,26 @@
             @endif
         </div>
     </form>
+
+    @if ($user->isDepartmentHead())
+        <div class="mt-6 rounded-2xl border border-gray-200 p-4 dark:border-gray-800">
+            <x-input-label :value="__('Telegram Alerts')" />
+
+            <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                @if ($user->telegram_chat_id)
+                    Telegram is connected. You will receive alerts there.
+                @else
+                    Connect your Telegram account to receive automatic alerts.
+                @endif
+            </p>
+
+            <form method="POST" action="{{ route('profile.telegram.connect') }}" class="mt-4">
+                @csrf
+
+                <x-secondary-button type="submit">
+                    {{ $user->telegram_chat_id ? __('Reconnect Telegram') : __('Connect Telegram') }}
+                </x-secondary-button>
+            </form>
+        </div>
+    @endif
 </section>

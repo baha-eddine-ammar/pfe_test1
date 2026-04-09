@@ -109,48 +109,52 @@
 @endphp
 
 <x-app-layout>
-    <section class="mx-auto max-w-7xl">
-        <div class="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-            <div>
-                <p class="app-section-title">Overview</p>
-                <h1 class="mt-2 font-display text-3xl font-semibold tracking-tight text-gray-900 dark:text-white">
-                    Server Room Analytics
-                </h1>
-                <p class="mt-3 max-w-3xl text-sm leading-7 text-gray-500 dark:text-gray-400">
-                    Clean monitoring cards, live sensor movement, room health, and server activity in one dashboard.
-                </p>
-            </div>
-
-            <div class="flex flex-wrap items-center gap-3">
-                <div class="inline-flex items-center gap-1 rounded-2xl bg-gray-100 p-1 dark:bg-white/[0.03]">
-                    <button type="button" class="rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-gray-900 shadow-sm dark:bg-gray-800 dark:text-white">Overview</button>
-                    <button type="button" class="rounded-xl px-4 py-2.5 text-sm font-medium text-gray-500 dark:text-gray-400">Today</button>
-                    <button type="button" class="rounded-xl px-4 py-2.5 text-sm font-medium text-gray-500 dark:text-gray-400">7 Days</button>
+    <div class="mx-auto max-w-7xl space-y-8 pb-2 lg:space-y-10">
+        <section>
+            <div class="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+                <div>
+                    <p class="app-section-title">Overview</p>
+                    <h1 class="mt-2 font-display text-3xl font-semibold tracking-tight text-gray-900 dark:text-white">
+                        Server Room Analytics
+                    </h1>
+                    <p class="mt-3 max-w-3xl text-sm leading-7 text-gray-500 dark:text-gray-400">
+                        Clean monitoring cards, live sensor movement, room health, and server activity in one dashboard.
+                    </p>
                 </div>
-                <span class="app-pill bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-300">
-                    Auto refresh 3s
-                </span>
-            </div>
-        </div>
-    </section>
 
-    <section class="mx-auto max-w-7xl">
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            @foreach ($summaryCards as $summaryCard)
-                <div class="app-card px-5 py-5 md:px-6">
-                    <div class="flex items-center justify-between gap-4">
-                        <p class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ $summaryCard['label'] }}</p>
-                        <span class="app-pill {{ $summaryCard['pillClass'] }}">{{ $summaryCard['pill'] }}</span>
+                <div class="flex flex-wrap items-center gap-3">
+                    <div class="inline-flex items-center gap-1 rounded-2xl bg-gray-100 p-1 dark:bg-white/[0.03]">
+                        <button type="button" class="rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-gray-900 shadow-sm dark:bg-gray-800 dark:text-white">Overview</button>
+                        <button type="button" class="rounded-xl px-4 py-2.5 text-sm font-medium text-gray-500 dark:text-gray-400">Today</button>
+                        <button type="button" class="rounded-xl px-4 py-2.5 text-sm font-medium text-gray-500 dark:text-gray-400">7 Days</button>
                     </div>
-                    <p class="mt-4 font-display text-[2.25rem] font-semibold tracking-tight text-gray-900 dark:text-white">{{ $summaryCard['value'] }}</p>
-                    <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">{{ $summaryCard['note'] }}</p>
+                    <span class="app-pill bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-300">
+                        Auto refresh 3s
+                    </span>
                 </div>
-            @endforeach
-        </div>
-    </section>
+            </div>
+        </section>
 
-    <section class="mx-auto max-w-7xl">
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <section>
+            <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+                @foreach ($summaryCards as $summaryCard)
+                    <div class="app-card flex h-full flex-col justify-between px-6 py-6">
+                        <div class="flex items-center justify-between gap-4">
+                            <p class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ $summaryCard['label'] }}</p>
+                            <span class="app-pill {{ $summaryCard['pillClass'] }}">{{ $summaryCard['pill'] }}</span>
+                        </div>
+
+                        <div class="mt-6 min-h-[5.5rem]">
+                            <p class="font-display text-[2.25rem] font-semibold tracking-tight text-gray-900 dark:text-white">{{ $summaryCard['value'] }}</p>
+                            <p class="mt-2 text-sm leading-6 text-gray-500 dark:text-gray-400">{{ $summaryCard['note'] }}</p>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        </section>
+
+        <section>
+            <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
             @foreach ($metricCards as $card)
                 <article
                     x-data="{
@@ -211,7 +215,7 @@
                             }, 3000);
                         },
                     }"
-                    class="app-card app-card-hover p-5 md:p-6"
+                    class="app-card app-card-hover flex h-full flex-col px-6 py-6"
                 >
                     <div class="flex items-start justify-between gap-4">
                         <div class="flex h-14 w-14 items-center justify-center rounded-xl {{ $card['iconClass'] }}">
@@ -240,20 +244,20 @@
                         <span class="app-pill px-3 py-1" :class="statusClasses()" x-text="status"></span>
                     </div>
 
-                    <div class="mt-6">
+                    <div class="mt-6 min-h-[5.5rem]">
                         <p class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ $card['subtitle'] }}</p>
                         <h2 class="mt-2 font-display text-[1.8rem] font-semibold tracking-tight text-gray-900 dark:text-white">
                             {{ $card['title'] }}
                         </h2>
                     </div>
 
-                    <div class="mt-7">
+                    <div class="mt-auto pt-7">
                         <div class="flex items-end justify-between gap-4">
-                            <p class="font-display text-4xl font-semibold leading-none text-gray-900 dark:text-white">
-                                <span x-text="displayValue()"></span>
+                            <p class="flex min-h-[3.5rem] items-end font-display text-4xl font-semibold leading-none text-gray-900 dark:text-white">
+                                <span class="tabular-nums" x-text="displayValue()"></span>
                                 <span class="ms-1 text-xl font-medium text-gray-400 dark:text-gray-500">{{ $card['unit'] }}</span>
                             </p>
-                            <span class="text-sm font-medium text-gray-400 dark:text-gray-500" x-text="displayPercent()"></span>
+                            <span class="text-sm font-medium tabular-nums text-gray-400 dark:text-gray-500" x-text="displayPercent()"></span>
                         </div>
 
                         <p class="mt-3 text-sm text-gray-500 dark:text-gray-400">{{ $card['target'] }}</p>
@@ -270,11 +274,11 @@
                     </div>
                 </article>
             @endforeach
-        </div>
-    </section>
+            </div>
+        </section>
 
-    <section class="mx-auto max-w-7xl">
-        <div class="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(360px,1fr)]">
+        <section>
+            <div class="grid gap-8 xl:grid-cols-[minmax(0,2fr)_minmax(360px,1fr)]">
             <div
                 x-data="{
                     trend: @js($trendData),
@@ -571,25 +575,26 @@
                     </div>
                 </div>
             </div>
-        </div>
-    </section>
+            </div>
+        </section>
 
-    <section class="mx-auto max-w-7xl">
-        <div class="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-                <p class="app-section-title">Infrastructure</p>
-                <h2 class="mt-2 font-display text-2xl font-semibold text-gray-900 dark:text-white">Servers</h2>
+        <section>
+            <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                    <p class="app-section-title">Infrastructure</p>
+                    <h2 class="mt-2 font-display text-2xl font-semibold text-gray-900 dark:text-white">Servers</h2>
+                </div>
+
+                <p class="max-w-2xl text-sm leading-7 text-gray-500 dark:text-gray-400">
+                    CPU, RAM, disk, and network remain visible in one compact operational grid.
+                </p>
             </div>
 
-            <p class="max-w-2xl text-sm leading-7 text-gray-500 dark:text-gray-400">
-                CPU, RAM, disk, and network remain visible in one compact operational grid.
-            </p>
-        </div>
-
-        <div class="grid gap-5 xl:grid-cols-2">
-            @foreach ($servers as $server)
-                @include('dashboard.partials.server-card', ['server' => $server])
-            @endforeach
-        </div>
-    </section>
+            <div class="grid gap-5 xl:grid-cols-2">
+                @foreach ($servers as $server)
+                    @include('dashboard.partials.server-card', ['server' => $server])
+                @endforeach
+            </div>
+        </section>
+    </div>
 </x-app-layout>

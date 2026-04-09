@@ -42,18 +42,25 @@
         </div>
 
         <div class="mt-4">
-            <x-input-label for="role" :value="__('Role')" />
-            <select
-                id="role"
-                name="role"
-                class="app-select mt-1 block w-full"
-                required
-            >
-                <option value="">Select a role</option>
-                <option value="department_head" @selected(old('role') === 'department_head')>Department Head</option>
-                <option value="it_staff" @selected(old('role') === 'it_staff')>IT Staff</option>
-            </select>
-            <x-input-error :messages="$errors->get('role')" class="mt-2" />
+            <x-input-label for="phone_number" :value="__('Phone Number')" />
+            <x-text-input id="phone_number" class="block mt-1 w-full" type="text" name="phone_number" :value="old('phone_number')" required autocomplete="tel" />
+            <x-input-error :messages="$errors->get('phone_number')" class="mt-2" />
+        </div>
+
+        <div class="mt-4">
+            <x-input-label for="department_head_key" :value="__('Department Head Key')" />
+            <x-text-input
+                id="department_head_key"
+                class="block mt-1 w-full"
+                type="password"
+                name="department_head_key"
+                :value="old('department_head_key')"
+                autocomplete="off"
+            />
+            <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                Optional. Leave this blank unless you were given the department head key.
+            </p>
+            <x-input-error :messages="$errors->get('department_head_key')" class="mt-2" />
         </div>
 
         <div class="mt-4">

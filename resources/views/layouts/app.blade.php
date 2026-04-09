@@ -29,13 +29,13 @@
     </head>
     <body
         class="app-shell"
-        x-data="{ profileOpen: false }"
+        x-data="{ profileOpen: false, notificationOpen: false }"
         x-init="$store.theme.init(); $store.sidebar.sync(); window.addEventListener('resize', () => $store.sidebar.sync())"
     >
         <div class="min-h-screen lg:flex">
             @include('layouts.sidebar')
 
-            <div class="flex min-h-screen flex-1 flex-col lg:pl-[290px]">
+            <div class="flex min-h-screen flex-1 flex-col transition-[padding] duration-300 ease-in-out" :class="$store.sidebar.open ? 'lg:pl-[290px]' : 'lg:pl-0'">
                 @include('layouts.topbar')
 
                 <main class="flex-1 px-4 pb-8 pt-4 sm:px-6 lg:px-8">

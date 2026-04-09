@@ -22,9 +22,14 @@ class User extends Authenticatable implements MustVerifyEmail
         'name',
         'email',
         'department',
+        'phone_number',
         'role',
+        'status',
         'is_approved',
         'password',
+        'telegram_chat_id',
+        'telegram_link_token',
+
     ];
 
     /**
@@ -51,6 +56,26 @@ class User extends Authenticatable implements MustVerifyEmail
         ];
     }
 
+    public function isDepartmentHead(): bool
+    {
+        return $this->role === 'department_head';
+    }
+
+    public function isStaff(): bool
+    {
+        return in_array($this->role, ['staff', 'it_staff'], true);
+    }
+
+    public function hasApprovedStatus(): bool
+    {
+        return $this->status === 'approved' || ($this->status === null && $this->is_approved);
+    }
+
+    public function statusLabel(): string
+    {
+        return $this->status ?? ($this->is_approved ? 'approved' : 'pending');
+    }
+
     public function messages(): HasMany
     {
         return $this->hasMany(Message::class);
@@ -64,5 +89,25 @@ class User extends Authenticatable implements MustVerifyEmail
     public function solutions(): HasMany
     {
         return $this->hasMany(Solution::class);
+    }
+
+    public function maintenanceTasksCreated(): HasMany
+    {
+        return $this->hasMany(MaintenanceTask::class, 'created_by_user_id');
+    }
+
+    public function maintenanceTasksAssigned(): HasMany
+    {
+        return $this->hasMany(MaintenanceTask::class, 'assigned_to_user_id');
+    }
+
+    public function maintenanceTaskHistories(): HasMany
+    {
+        return $this->hasMany(MaintenanceTaskHistory::class, 'actor_id');
+    }
+
+    public function userNotifications(): HasMany
+    {
+        return $this->hasMany(UserNotification::class);
     }
 }

@@ -17,9 +17,12 @@ class AuthenticationTest extends TestCase
         $response->assertStatus(200);
     }
 
-    public function test_users_can_authenticate_using_the_login_screen(): void
+    public function test_approved_users_can_authenticate_using_the_login_screen(): void
     {
-        $user = User::factory()->create();
+        $user = User::factory()->create([
+            'status' => 'approved',
+            'is_approved' => true,
+        ]);
 
         $response = $this->post('/login', [
             'email' => $user->email,
@@ -28,6 +31,25 @@ class AuthenticationTest extends TestCase
 
         $this->assertAuthenticated();
         $response->assertRedirect(route('dashboard', absolute: false));
+    }
+
+    public function test_pending_users_can_not_authenticate(): void
+    {
+        $user = User::factory()->create([
+            'status' => 'pending',
+            'is_approved' => false,
+        ]);
+
+        $response = $this->from('/login')->post('/login', [
+            'email' => $user->email,
+            'password' => 'password',
+        ]);
+
+        $this->assertGuest();
+        $response->assertRedirect('/login');
+        $response->assertSessionHasErrors([
+            'email' => 'Your account is pending approval.',
+        ]);
     }
 
     public function test_users_can_not_authenticate_with_invalid_password(): void

@@ -29,7 +29,7 @@
                 <p class="app-section-title">User Management</p>
                 <h3 class="mt-3 font-display text-2xl font-semibold text-gray-900 dark:text-white">Approvals</h3>
                 <p class="mt-3 app-subtle">
-                    Review pending Department Head registrations and confirm access manually.
+                    Review pending registrations, approve or reject them, and manage user roles.
                 </p>
             </div>
 

@@ -6,6 +6,7 @@ use App\Contracts\Reports\SensorDataProvider;
 use App\Models\Report;
 use App\Models\ReportAiSummary;
 use App\Models\User;
+use App\Services\TelegramService;
 use Carbon\Carbon;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -17,6 +18,7 @@ class ReportGenerationService
         private readonly SensorDataProvider $sensorDataProvider,
         private readonly ReportMetricsCalculator $calculator,
         private readonly GroqReportSummaryService $aiSummaryService,
+        private readonly TelegramService $telegramService,
     ) {
     }
 
@@ -26,7 +28,7 @@ class ReportGenerationService
         $dataset = $this->sensorDataProvider->forPeriod($type, $periodStart, $periodEnd);
         $snapshot = $this->calculator->calculate($type, $periodStart, $periodEnd, $dataset);
 
-        return DB::transaction(function () use ($type, $periodStart, $periodEnd, $dataset, $snapshot, $user): Report {
+        $report = DB::transaction(function () use ($type, $periodStart, $periodEnd, $dataset, $snapshot, $user): Report {
             $report = Report::query()->create([
                 'type' => $type,
                 'source' => $dataset['source'],
@@ -45,6 +47,25 @@ class ReportGenerationService
 
             return $report->load(['latestAiSummary', 'generatedBy']);
         });
+
+        $criticalCount = (int) ($snapshot['overview']['critical_count'] ?? 0);
+
+        if ($criticalCount > 0) {
+            $message = "Critical alert\n"
+                ."Report: {$report->title}\n"
+                ."Critical count: {$criticalCount}\n"
+                ."Generated at: {$report->generated_at?->format('Y-m-d H:i:s')}";
+
+            User::query()
+                ->where('role', 'department_head')
+                ->whereNotNull('telegram_chat_id')
+                ->get()
+                ->each(function (User $departmentHead) use ($message): void {
+                    $this->telegramService->sendMessage($departmentHead->telegram_chat_id, $message);
+                });
+        }
+
+        return $report;
     }
 
     public function regenerateSummary(Report $report): ReportAiSummary

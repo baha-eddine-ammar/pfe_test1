@@ -2,12 +2,15 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Server extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
         'name',
         'identifier',
@@ -29,6 +32,6 @@ class Server extends Model
 
     public function latestMetric(): HasOne
     {
-        return $this->hasOne(ServerMetric::class)->latestOfMany();
+        return $this->hasOne(ServerMetric::class)->latestOfMany('created_at');
     }
 }

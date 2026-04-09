@@ -17,42 +17,51 @@ class RegistrationTest extends TestCase
         $response->assertStatus(200);
     }
 
-    public function test_new_users_can_register(): void
+    public function test_new_users_register_as_pending_staff_by_default(): void
     {
         $response = $this->post('/register', [
             'name' => 'Test User',
             'email' => 'test@draxmailer',
             'department' => 'Systems',
-            'role' => 'it_staff',
+            'phone_number' => '0612345678',
             'password' => 'password',
             'password_confirmation' => 'password',
         ]);
 
-        $this->assertAuthenticated();
-        $response->assertRedirect(route('dashboard', absolute: false));
+        $this->assertGuest();
+        $response->assertRedirect(route('login', absolute: false));
+        $response->assertSessionHas('status', 'Your account is pending approval.');
         $this->assertDatabaseHas('users', [
             'email' => 'test@draxmailer',
             'department' => 'Systems',
-            'role' => 'it_staff',
-            'is_approved' => true,
+            'phone_number' => '0612345678',
+            'role' => 'staff',
+            'status' => 'pending',
+            'is_approved' => false,
         ]);
     }
 
-    public function test_department_head_registration_starts_pending_approval(): void
+    public function test_valid_department_head_key_creates_an_approved_department_head(): void
     {
         $response = $this->post('/register', [
-            'name' => 'Pending Head',
-            'email' => 'manager@draxmailer',
+            'name' => 'Head User',
+            'email' => 'head@draxmailer',
             'department' => 'Network',
-            'role' => 'department_head',
+            'phone_number' => '0698765432',
+            'department_head_key' => '123456789',
             'password' => 'password',
             'password_confirmation' => 'password',
         ]);
 
-        $user = User::query()->where('email', 'manager@draxmailer')->first();
+        $user = User::query()->where('email', 'head@draxmailer')->first();
 
         $this->assertAuthenticatedAs($user);
         $response->assertRedirect(route('dashboard', absolute: false));
-        $this->assertFalse((bool) $user?->is_approved);
+        $this->assertDatabaseHas('users', [
+            'email' => 'head@draxmailer',
+            'role' => 'department_head',
+            'status' => 'approved',
+            'is_approved' => true,
+        ]);
     }
 }

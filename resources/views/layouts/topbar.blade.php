@@ -6,18 +6,30 @@
         'dashboard' => ['eyebrow' => 'Workspace', 'title' => 'Dashboard'],
         'reports.index' => ['eyebrow' => 'Intelligence', 'title' => 'Reports'],
         'reports.show' => ['eyebrow' => 'Intelligence', 'title' => 'Report Detail'],
+        'calendar.index' => ['eyebrow' => 'Planning', 'title' => 'Calendar'],
         'chat.index' => ['eyebrow' => 'Communication', 'title' => 'Team Chat'],
+        'ai-chat.index' => ['eyebrow' => 'Communication', 'title' => 'AI Chat'],
+        'servers.index' => ['eyebrow' => 'Infrastructure', 'title' => 'Servers'],
+        'servers.create' => ['eyebrow' => 'Infrastructure', 'title' => 'Add Server'],
+        'servers.show' => ['eyebrow' => 'Infrastructure', 'title' => 'Server Detail'],
         'problems.index' => ['eyebrow' => 'Knowledge', 'title' => 'Problems'],
         'problems.create' => ['eyebrow' => 'Knowledge', 'title' => 'Submit Problem'],
         'problems.show' => ['eyebrow' => 'Knowledge', 'title' => 'Problem Details'],
         'solutions.index' => ['eyebrow' => 'Knowledge', 'title' => 'Solutions'],
+        'maintenance.index' => ['eyebrow' => 'Operations', 'title' => 'Maintenance'],
+        'maintenance.create' => ['eyebrow' => 'Operations', 'title' => 'Create Maintenance Task'],
+        'maintenance.show' => ['eyebrow' => 'Operations', 'title' => 'Maintenance Task'],
+        'maintenance.edit' => ['eyebrow' => 'Operations', 'title' => 'Edit Maintenance Task'],
         'admin.index' => ['eyebrow' => 'Administration', 'title' => 'Admin'],
         'admin.users.index' => ['eyebrow' => 'Administration', 'title' => 'Users'],
+        'notifications.index' => ['eyebrow' => 'Workspace', 'title' => 'Notifications'],
         'profile.edit' => ['eyebrow' => 'Settings', 'title' => 'Profile'],
     ];
 
     $pageData = $pageMap[$routeName] ?? ['eyebrow' => 'Workspace', 'title' => 'Overview'];
-    $roleLabel = $user->role === 'department_head' ? 'Department Head' : 'IT Staff';
+    $roleLabel = $user->isDepartmentHead() ? 'Department Head' : 'Staff';
+    $latestNotifications = $user->userNotifications()->latest('created_at')->limit(6)->get();
+    $unreadNotificationsCount = $user->userNotifications()->whereNull('read_at')->count();
     $initials = collect(explode(' ', $user->name))
         ->filter()
         ->map(fn (string $part) => \Illuminate\Support\Str::upper(\Illuminate\Support\Str::substr($part, 0, 1)))
@@ -27,8 +39,8 @@
 
 <header class="sticky top-0 z-30 px-4 pt-4 sm:px-6 lg:px-8">
     <div class="app-topbar rounded-2xl px-4 py-3 sm:px-5 lg:px-6">
-        <div class="flex flex-col gap-4 xl:flex-row xl:items-center">
-            <div class="flex items-center gap-3 xl:min-w-[14rem]">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center gap-3 min-w-0">
                 <button type="button" class="app-icon-button lg:hidden" @click="$store.sidebar.toggle()" aria-label="Open sidebar">
                     <svg class="h-5 w-5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7">
                         <path d="M3.5 5.5h13M3.5 10h13M3.5 14.5h13" stroke-linecap="round"></path>
@@ -47,20 +59,6 @@
                 </div>
             </div>
 
-            <div class="flex-1">
-                <label class="relative block">
-                    <span class="sr-only">Search</span>
-                    <svg class="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400 dark:text-gray-500" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7">
-                        <path d="M17.5 17.5l-3.5-3.5" stroke-linecap="round"></path>
-                        <circle cx="8.8" cy="8.8" r="5.3"></circle>
-                    </svg>
-                    <input type="search" class="app-search pr-20" placeholder="Search or type command...">
-                    <span class="pointer-events-none absolute right-3 top-1/2 hidden -translate-y-1/2 rounded-lg border border-gray-200 bg-white px-2.5 py-1 text-[11px] font-semibold tracking-[0.2em] text-gray-400 shadow-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-500 sm:inline-flex">
-                        Ctrl K
-                    </span>
-                </label>
-            </div>
-
             <div class="ml-auto flex items-center gap-2 sm:gap-3">
                 <button type="button" class="app-icon-button" @click="$store.theme.toggle()" aria-label="Toggle theme">
                     <svg x-cloak x-show="$store.theme.theme !== 'dark'" class="h-5 w-5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7">
@@ -72,13 +70,91 @@
                     </svg>
                 </button>
 
-                <button type="button" class="app-icon-button relative" aria-label="Notifications">
-                    <span class="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-400"></span>
-                    <svg class="h-5 w-5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7">
-                        <path d="M5.5 8a4.5 4.5 0 119 0v2.5l1.5 2.5h-12l1.5-2.5V8z" stroke-linejoin="round"></path>
-                        <path d="M8.5 15.5a1.5 1.5 0 003 0" stroke-linecap="round"></path>
-                    </svg>
-                </button>
+                <div class="relative" @click.outside="notificationOpen = false">
+                    <button type="button" class="app-icon-button relative" aria-label="Notifications" @click="notificationOpen = !notificationOpen; profileOpen = false">
+                        @if ($unreadNotificationsCount > 0)
+                            <span class="absolute right-2 top-2 inline-flex min-w-[1.15rem] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white">
+                                {{ $unreadNotificationsCount > 9 ? '9+' : $unreadNotificationsCount }}
+                            </span>
+                        @endif
+                        <svg class="h-5 w-5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7">
+                            <path d="M5.5 8a4.5 4.5 0 119 0v2.5l1.5 2.5h-12l1.5-2.5V8z" stroke-linejoin="round"></path>
+                            <path d="M8.5 15.5a1.5 1.5 0 003 0" stroke-linecap="round"></path>
+                        </svg>
+                    </button>
+
+                    <div
+                        x-cloak
+                        x-show="notificationOpen"
+                        x-transition.origin.top.right
+                        class="app-card absolute right-0 mt-3 w-[22rem] px-4 py-4"
+                        style="display: none;"
+                    >
+                        <div class="flex items-start justify-between gap-4">
+                            <div>
+                                <p class="font-display text-lg font-semibold text-gray-900 dark:text-white">Notifications</p>
+                                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ $unreadNotificationsCount }} unread</p>
+                            </div>
+
+                            @if ($unreadNotificationsCount > 0)
+                                <form method="POST" action="{{ route('notifications.read-all') }}">
+                                    @csrf
+                                    @method('PATCH')
+                                    <input type="hidden" name="redirect_to" value="{{ request()->getPathInfo() }}">
+                                    <button type="submit" class="text-xs font-semibold uppercase tracking-[0.2em] text-brand-500 transition hover:text-brand-600">
+                                        Mark all
+                                    </button>
+                                </form>
+                            @endif
+                        </div>
+
+                        <div class="mt-4 space-y-3">
+                            @forelse ($latestNotifications as $notification)
+                                @php
+                                    $toneClass = match ($notification->type) {
+                                        'maintenance.assigned' => 'bg-amber-400',
+                                        'report.generated' => 'bg-sky-400',
+                                        'alert.critical' => 'bg-rose-500',
+                                        'user.approved' => 'bg-emerald-400',
+                                        'user.rejected' => 'bg-rose-400',
+                                        default => 'bg-brand-500',
+                                    };
+                                @endphp
+
+                                <form method="POST" action="{{ route('notifications.read', $notification) }}">
+                                    @csrf
+                                    @method('PATCH')
+                                    <input type="hidden" name="redirect_to" value="{{ $notification->url ?? request()->getPathInfo() }}">
+                                    <button type="submit" class="w-full rounded-2xl border px-4 py-3 text-left transition hover:-translate-y-0.5 hover:shadow-sm {{ $notification->read_at ? 'border-gray-100 bg-gray-50 dark:border-gray-800 dark:bg-white/[0.03]' : 'border-brand-100 bg-brand-50/70 dark:border-brand-900/30 dark:bg-brand-500/10' }}">
+                                        <div class="flex items-start gap-3">
+                                            <span class="mt-1 inline-flex h-2.5 w-2.5 rounded-full {{ $toneClass }}"></span>
+                                            <div class="min-w-0">
+                                                <div class="flex items-center justify-between gap-3">
+                                                    <p class="truncate font-medium text-gray-900 dark:text-white">{{ $notification->title }}</p>
+                                                    <span class="text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500">
+                                                        {{ $notification->created_at->diffForHumans() }}
+                                                    </span>
+                                                </div>
+                                                @if ($notification->body)
+                                                    <p class="mt-1 line-clamp-2 text-sm leading-6 text-gray-500 dark:text-gray-400">{{ $notification->body }}</p>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    </button>
+                                </form>
+                            @empty
+                                <div class="rounded-2xl border border-dashed border-gray-200 px-4 py-8 text-center dark:border-gray-800">
+                                    <p class="font-medium text-gray-900 dark:text-white">No notifications yet</p>
+                                    <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">System activity will appear here.</p>
+                                </div>
+                            @endforelse
+                        </div>
+
+                        <a href="{{ route('notifications.index') }}" class="mt-4 inline-flex text-sm font-medium text-brand-500 transition hover:text-brand-600">
+                            View all notifications
+                        </a>
+                    </div>
+                </div>
 
                 <div class="relative" @click.outside="profileOpen = false">
                     <button
@@ -109,7 +185,7 @@
                         <div class="mt-4 rounded-2xl bg-gray-50 px-4 py-3 dark:bg-white/[0.03]">
                             <p class="app-section-title">Access</p>
                             <p class="mt-2 text-sm font-medium text-gray-700 dark:text-gray-300">
-                                {{ $user->role === 'department_head' && ! $user->is_approved ? 'Pending department approval' : 'Verified workspace access' }}
+                                {{ $user->hasApprovedStatus() ? 'Verified workspace access' : 'Your account is pending approval.' }}
                             </p>
                         </div>
 

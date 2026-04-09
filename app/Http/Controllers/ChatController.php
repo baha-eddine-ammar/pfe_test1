@@ -53,16 +53,34 @@ class ChatController extends Controller
         ]);
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request): JsonResponse|RedirectResponse
     {
         $validated = $request->validate([
             'body' => ['required', 'string', 'min:1', 'max:1000'],
         ]);
 
-        Message::create([
+        $message = Message::create([
             'user_id' => $request->user()->id,
             'body' => trim($validated['body']),
         ]);
+
+        $message->load('user');
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Message sent successfully.',
+                'message_data' => [
+                    'id' => $message->id,
+                    'body' => $message->body,
+                    'created_at' => $message->created_at->format('d M Y H:i'),
+                    'is_mine' => true,
+                    'user' => [
+                        'id' => $message->user->id,
+                        'name' => $message->user->name,
+                    ],
+                ],
+            ]);
+        }
 
         return redirect()
             ->route('chat.index')

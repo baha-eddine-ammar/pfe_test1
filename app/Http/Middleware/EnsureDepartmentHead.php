@@ -15,7 +15,7 @@ class EnsureDepartmentHead
     {
         $user = $request->user();
 
-        if (! $user || $user->role !== 'department_head' || ! $user->is_approved) {
+        if (! $user || ! $user->isDepartmentHead() || ! $user->hasApprovedStatus()) {
             abort(403);
         }
 

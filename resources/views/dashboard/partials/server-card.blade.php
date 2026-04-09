@@ -69,4 +69,11 @@
             </div>
         @endforeach
     </div>
+
+    @if (isset($server['identifier']) || isset($server['lastSeenLabel']))
+        <div class="mt-4 flex items-center justify-between text-xs font-semibold uppercase tracking-[0.22em] text-gray-400 dark:text-gray-500">
+            <span>{{ $server['identifier'] ?? 'Monitoring node' }}</span>
+            <span>{{ $server['lastSeenLabel'] ?? 'Live sample' }}</span>
+        </div>
+    @endif
 </article>

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreReportRequest;
 use App\Models\Report;
+use App\Services\NotificationService;
 use App\Services\Reports\ReportGenerationService;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
@@ -14,6 +15,7 @@ class ReportController extends Controller
 {
     public function __construct(
         private readonly ReportGenerationService $reportGenerationService,
+        private readonly NotificationService $notificationService,
     ) {
     }
 
@@ -52,6 +54,26 @@ class ReportController extends Controller
             Carbon::parse($request->string('reference_date')->toString()),
             $request->user(),
         );
+
+        $this->notificationService->notifyApprovedDepartmentHeads(
+            'report.generated',
+            ucfirst($report->type) . ' report generated',
+            $report->title,
+            route('reports.show', $report, false),
+            ['report_id' => $report->id]
+        );
+
+        $criticalCount = (int) data_get($report->metrics_snapshot, 'overview.critical_count', 0);
+
+        if ($criticalCount > 0) {
+            $this->notificationService->notifyApprovedDepartmentHeads(
+                'alert.critical',
+                'Critical conditions detected',
+                $criticalCount . ' critical condition(s) were found in the latest report.',
+                route('reports.show', $report, false),
+                ['report_id' => $report->id, 'critical_count' => $criticalCount]
+            );
+        }
 
         $message = optional($report->latestAiSummary)->status === 'success'
             ? 'Report generated successfully.'

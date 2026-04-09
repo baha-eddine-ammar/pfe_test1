@@ -1,19 +1,17 @@
 @php
     $user = auth()->user();
-    $isApprovedDepartmentHead = $user?->role === 'department_head' && $user?->is_approved;
+    $isApprovedDepartmentHead = $user?->isDepartmentHead() && $user?->hasApprovedStatus();
 
     $menuGroups = [
         [
             'title' => 'Menu',
             'items' => [
                 ['label' => 'Dashboard', 'route' => route('dashboard'), 'pattern' => 'dashboard', 'icon' => 'dashboard', 'soon' => false],
-                ['label' => 'Sensors', 'route' => '#', 'pattern' => null, 'icon' => 'pulse', 'soon' => true],
-                ['label' => 'Servers', 'route' => '#', 'pattern' => null, 'icon' => 'server', 'soon' => true],
-                ['label' => 'Alerts', 'route' => '#', 'pattern' => null, 'icon' => 'bell', 'soon' => true],
-                ['label' => 'RFID Access', 'route' => '#', 'pattern' => null, 'icon' => 'shield', 'soon' => true],
-                ['label' => 'Maintenance', 'route' => '#', 'pattern' => null, 'icon' => 'tool', 'soon' => true],
+                ['label' => 'Maintenance', 'route' => route('maintenance.index'), 'pattern' => 'maintenance.*', 'icon' => 'tool', 'soon' => false],
                 ['label' => 'Reports', 'route' => route('reports.index'), 'pattern' => 'reports.*', 'icon' => 'chart', 'soon' => false],
+                ['label' => 'Calendar', 'route' => route('calendar.index'), 'pattern' => 'calendar.*', 'icon' => 'calendar', 'soon' => false],
                 ['label' => 'Chat', 'route' => route('chat.index'), 'pattern' => 'chat.*', 'icon' => 'chat', 'soon' => false],
+                ['label' => 'AI Chat', 'route' => route('ai-chat.index'), 'pattern' => 'ai-chat.*', 'icon' => 'spark', 'soon' => false],
             ],
         ],
         [
@@ -77,9 +75,21 @@ SVG,
     <path d="M4 16V9M10 16V5M16 16v-7" stroke-linecap="round"></path>
 </svg>
 SVG,
+        'calendar' => <<<'SVG'
+<svg class="h-5 w-5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7">
+    <rect x="3" y="4.5" width="14" height="12" rx="2"></rect>
+    <path d="M6.5 2.8v3.4M13.5 2.8v3.4M3 8h14" stroke-linecap="round"></path>
+</svg>
+SVG,
         'chat' => <<<'SVG'
 <svg class="h-5 w-5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7">
     <path d="M5.5 13.5L3 16v-2.8A5.5 5.5 0 018.5 7.7h3A5.5 5.5 0 0117 13.2v.3" stroke-linejoin="round"></path>
+</svg>
+SVG,
+        'spark' => <<<'SVG'
+<svg class="h-5 w-5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7">
+    <path d="M10 2.8l1.3 3.4 3.4 1.3-3.4 1.3L10 12.2 8.7 8.8 5.3 7.5l3.4-1.3L10 2.8z" stroke-linejoin="round"></path>
+    <path d="M15.2 12.8l.8 2 .8.8-2 .8-.8 2-.8-2-2-.8 2-.8.8-2z" stroke-linejoin="round"></path>
 </svg>
 SVG,
         'circle-alert' => <<<'SVG'
@@ -113,15 +123,15 @@ SVG,
 
 <div
     x-cloak
-    x-show="$store.sidebar.open"
+    x-show="!$store.sidebar.isDesktop() && $store.sidebar.open"
     class="fixed inset-0 z-40 bg-gray-900/40 backdrop-blur-sm lg:hidden"
     @click="$store.sidebar.toggle()"
     style="display: none;"
 ></div>
 
 <aside
-    class="app-sidebar custom-scrollbar fixed inset-y-0 left-0 z-50 flex w-[290px] -translate-x-full flex-col overflow-y-auto px-5 py-6 transition-transform duration-300 ease-in-out lg:translate-x-0"
-    :class="{ 'translate-x-0': $store.sidebar.open }"
+    class="app-sidebar custom-scrollbar fixed inset-y-0 left-0 z-50 flex w-[290px] -translate-x-full flex-col overflow-y-auto px-5 py-6 transition-transform duration-300 ease-in-out"
+    :class="$store.sidebar.open ? 'translate-x-0' : '-translate-x-full'"
 >
     <div class="flex items-center justify-between">
         <a href="{{ route('dashboard') }}" class="flex items-center gap-3">
@@ -180,12 +190,12 @@ SVG,
             <div>
                 <p class="font-display text-lg font-semibold text-gray-900 dark:text-white">{{ $user->name }}</p>
                 <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                    {{ $user->role === 'department_head' ? 'Department Head' : 'IT Staff' }}
+                    {{ $user->isDepartmentHead() ? 'Department Head' : 'Staff' }}
                 </p>
             </div>
 
-            <span class="app-pill {{ $isApprovedDepartmentHead || $user->role === 'it_staff' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300' }}">
-                {{ $isApprovedDepartmentHead || $user->role === 'it_staff' ? 'Verified' : 'Pending' }}
+            <span class="app-pill {{ $user->hasApprovedStatus() ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300' }}">
+                {{ ucfirst($user->statusLabel()) }}
             </span>
         </div>
 

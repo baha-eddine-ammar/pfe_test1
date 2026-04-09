@@ -43,18 +43,48 @@ document.addEventListener('alpine:init', () => {
 
     Alpine.store('sidebar', {
         open: window.innerWidth >= 1024,
+        desktopCollapsed: false,
+        isDesktop() {
+            return window.innerWidth >= 1024;
+        },
         toggle() {
+            if (this.isDesktop()) {
+                this.desktopCollapsed = !this.desktopCollapsed;
+                this.open = !this.desktopCollapsed;
+                return;
+            }
+
             this.open = !this.open;
         },
         closeOnMobile() {
-            if (window.innerWidth < 1024) {
+            if (!this.isDesktop()) {
                 this.open = false;
             }
         },
         sync() {
-            this.open = window.innerWidth >= 1024;
+            this.open = this.isDesktop() ? !this.desktopCollapsed : false;
         },
     });
 });
 
 Alpine.start();
+
+const bootInteractivePages = async () => {
+    if (document.getElementById('server-3d')) {
+        const { initServer3D } = await import('./server-3d');
+        initServer3D();
+    }
+
+    if (document.querySelector('[data-server-rack-landing]')) {
+        const { initServerRackLanding } = await import('./server-rack-landing');
+        initServerRackLanding();
+    }
+};
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        bootInteractivePages();
+    }, { once: true });
+} else {
+    bootInteractivePages();
+}

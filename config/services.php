@@ -37,8 +37,13 @@ return [
 
     'groq' => [
         'api_key' => env('GROQ_API_KEY'),
-        'base_url' => env('GROQ_BASE_URL'),
-        'model' => env('GROQ_MODEL'),
+        'base_url' => env('GROQ_BASE_URL', 'https://api.groq.com/openai/v1'),
+        'model' => env('GROQ_MODEL', 'llama-3.3-70b-versatile'),
+    ],
+
+    'telegram' => [
+        'bot_token' => env('TELEGRAM_BOT_TOKEN'),
+        'bot_username' => env('TELEGRAM_BOT_USERNAME'),
     ],
 
 ];

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Problem;
+use App\Services\NotificationService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -27,7 +28,7 @@ class ProblemController extends Controller
         return view('problems.create');
     }
 
-    public function store(Request $request): RedirectResponse
+    public function store(Request $request, NotificationService $notificationService): RedirectResponse
     {
         $validated = $request->validate([
             'title' => ['required', 'string', 'max:255'],
@@ -59,6 +60,14 @@ class ProblemController extends Controller
 
             return $problem;
         });
+
+        $notificationService->notifyApprovedDepartmentHeads(
+            'problem.created',
+            'New problem submitted',
+            trim($validated['title']),
+            route('problems.show', $problem, false),
+            ['problem_id' => $problem->id]
+        );
 
         return redirect()
             ->route('problems.show', $problem)

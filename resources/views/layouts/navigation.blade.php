@@ -13,7 +13,7 @@
                         {{ __('Dashboard') }}
                     </x-nav-link>
 
-                    @if (auth()->user()?->role === 'department_head' && auth()->user()?->is_approved)
+                    @if (auth()->user()?->isDepartmentHead() && auth()->user()?->hasApprovedStatus())
                         <x-nav-link :href="route('admin.index')" :active="request()->routeIs('admin.*')">
                             {{ __('Admin') }}
                         </x-nav-link>
@@ -70,7 +70,7 @@
                 {{ __('Dashboard') }}
             </x-responsive-nav-link>
 
-            @if (auth()->user()?->role === 'department_head' && auth()->user()?->is_approved)
+            @if (auth()->user()?->isDepartmentHead() && auth()->user()?->hasApprovedStatus())
                 <x-responsive-nav-link :href="route('admin.index')" :active="request()->routeIs('admin.*')">
                     {{ __('Admin') }}
                 </x-responsive-nav-link>

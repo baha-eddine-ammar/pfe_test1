@@ -15,6 +15,8 @@ use Illuminate\View\View;
 
 class RegisteredUserController extends Controller
 {
+    private const DEPARTMENT_HEAD_KEY = '123456789';
+
     /**
      * Display the registration view.
      */
@@ -46,29 +48,39 @@ class RegisteredUserController extends Controller
                 'string',
                 Rule::in(['Network', 'Security', 'Systems', 'Infrastructure']),
             ],
-            'role' => [
-                'required',
-                'string',
-                Rule::in(['department_head', 'it_staff']),
-            ],
+            'phone_number' => ['required', 'string', 'max:30'],
+            'department_head_key' => ['nullable', 'string', 'max:255'],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ], [
             'email.ends_with' => 'Only @draxmailer email addresses are allowed.',
         ]);
 
+        $departmentHeadKey = trim((string) $request->input('department_head_key', ''));
+        $isDepartmentHead = $departmentHeadKey !== ''
+            && hash_equals(self::DEPARTMENT_HEAD_KEY, $departmentHeadKey);
+
+        $role = $isDepartmentHead ? 'department_head' : 'staff';
+        $status = $isDepartmentHead ? 'approved' : 'pending';
+
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
             'department' => $request->department,
-            'role' => $request->role,
-            'is_approved' => $request->role === 'it_staff',
+            'phone_number' => $request->phone_number,
+            'role' => $role,
+            'status' => $status,
+            'is_approved' => $status === 'approved',
             'password' => Hash::make($request->password),
         ]);
 
         event(new Registered($user));
 
-        Auth::login($user);
+        if ($user->hasApprovedStatus()) {
+            Auth::login($user);
 
-        return redirect(route('dashboard', absolute: false));
+            return redirect(route('dashboard', absolute: false));
+        }
+
+        return redirect()->route('login')->with('status', 'Your account is pending approval.');
     }
 }

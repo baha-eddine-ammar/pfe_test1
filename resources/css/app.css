@@ -1,4 +1,5 @@
 @import url('https://fonts.bunny.net/css?family=outfit:300,400,500,600,700,800');
+@import url('https://fonts.bunny.net/css?family=inter:400,500,600,700,800');
 
 @tailwind base;
 @tailwind components;
@@ -268,5 +269,747 @@
 
     .apexcharts-tooltip.apexcharts-theme-light {
         @apply !rounded-xl !border !border-gray-200 !bg-white !text-gray-700 shadow-sm dark:!border-gray-800 dark:!bg-gray-900 dark:!text-gray-200;
+    }
+}
+
+@layer components {
+    .xm6-body {
+        --xm6-bg: #050505;
+        --xm6-surface: #0a0a0c;
+        --xm6-heading: rgba(255, 255, 255, 0.92);
+        --xm6-copy: rgba(255, 255, 255, 0.6);
+        --xm6-blue: #0050ff;
+        --xm6-cyan: #00d6ff;
+        margin: 0;
+        min-height: 100%;
+        overflow-x: hidden;
+        background:
+            radial-gradient(circle at 50% 12%, rgba(0, 214, 255, 0.08), transparent 24%),
+            radial-gradient(circle at 72% 18%, rgba(0, 80, 255, 0.14), transparent 28%),
+            linear-gradient(180deg, #050505 0%, #060608 58%, #0a0a0c 100%);
+        color: var(--xm6-heading);
+        font-family: 'Inter', 'SF Pro Display', 'SF Pro Text', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        overscroll-behavior-y: none;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+    }
+
+    .xm6-page {
+        position: relative;
+        min-height: 100vh;
+        background:
+            radial-gradient(circle at 50% 18%, rgba(255, 255, 255, 0.04), transparent 20%),
+            linear-gradient(180deg, rgba(5, 5, 5, 0) 0%, rgba(5, 5, 5, 0.42) 38%, rgba(5, 5, 5, 0.72) 100%);
+    }
+
+    .xm6-main {
+        position: relative;
+        z-index: 1;
+    }
+
+    .xm6-nav {
+        position: fixed;
+        top: 18px;
+        left: clamp(16px, 2.5vw, 32px);
+        right: clamp(16px, 2.5vw, 32px);
+        z-index: 60;
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        align-items: center;
+        gap: 24px;
+        padding: 14px 18px;
+        border: 1px solid transparent;
+        border-radius: 999px;
+        background: rgba(5, 5, 5, 0.1);
+        transition:
+            background 280ms ease,
+            border-color 280ms ease,
+            box-shadow 280ms ease,
+            transform 280ms ease,
+            backdrop-filter 280ms ease;
+    }
+
+    .xm6-nav.is-scrolled {
+        border-color: rgba(255, 255, 255, 0.08);
+        background: rgba(5, 5, 5, 0.72);
+        backdrop-filter: blur(18px);
+        box-shadow: 0 20px 48px rgba(0, 0, 0, 0.35);
+    }
+
+    .xm6-nav__brand {
+        display: inline-flex;
+        align-items: baseline;
+        gap: 10px;
+        color: var(--xm6-heading);
+        text-decoration: none;
+    }
+
+    .xm6-nav__brand-mark {
+        font-size: 0.95rem;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+    }
+
+    .xm6-nav__brand-model {
+        color: rgba(255, 255, 255, 0.58);
+        font-size: 0.78rem;
+        font-weight: 500;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+    }
+
+    .xm6-nav__links {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: clamp(12px, 2vw, 26px);
+        min-width: 0;
+    }
+
+    .xm6-nav__links a {
+        position: relative;
+        color: rgba(255, 255, 255, 0.58);
+        font-size: 0.92rem;
+        font-weight: 500;
+        letter-spacing: -0.01em;
+        text-decoration: none;
+        transition: color 220ms ease, opacity 220ms ease;
+    }
+
+    .xm6-nav__links a::after {
+        content: '';
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: -10px;
+        height: 1px;
+        border-radius: 999px;
+        background: linear-gradient(90deg, rgba(0, 80, 255, 0), rgba(0, 214, 255, 0.95), rgba(0, 80, 255, 0));
+        opacity: 0;
+        transform: scaleX(0.6);
+        transition: opacity 220ms ease, transform 220ms ease;
+    }
+
+    .xm6-nav__links a:hover,
+    .xm6-nav__links a.is-active {
+        color: rgba(255, 255, 255, 0.9);
+    }
+
+    .xm6-nav__links a:hover::after,
+    .xm6-nav__links a.is-active::after {
+        opacity: 1;
+        transform: scaleX(1);
+    }
+
+    .xm6-button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        min-height: 48px;
+        padding: 0 20px;
+        border-radius: 999px;
+        border: 1px solid transparent;
+        font-size: 0.96rem;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+        text-decoration: none;
+        transition:
+            transform 220ms ease,
+            border-color 220ms ease,
+            background 220ms ease,
+            box-shadow 220ms ease,
+            color 220ms ease;
+    }
+
+    .xm6-button:hover {
+        transform: translateY(-1px);
+    }
+
+    .xm6-button--nav,
+    .xm6-button--primary {
+        color: #fff;
+        background:
+            linear-gradient(135deg, rgba(0, 80, 255, 0.9), rgba(0, 214, 255, 0.82)),
+            linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0));
+        box-shadow: 0 16px 44px rgba(0, 80, 255, 0.22);
+    }
+
+    .xm6-button--nav {
+        min-height: 42px;
+        padding: 0 18px;
+        font-size: 0.88rem;
+    }
+
+    .xm6-button--secondary {
+        border-color: rgba(255, 255, 255, 0.14);
+        background: rgba(255, 255, 255, 0.03);
+        color: rgba(255, 255, 255, 0.82);
+        backdrop-filter: blur(14px);
+    }
+
+    .xm6-button--secondary:hover {
+        border-color: rgba(255, 255, 255, 0.24);
+        color: #fff;
+    }
+
+    .xm6-story {
+        position: relative;
+    }
+
+    .xm6-story__track {
+        position: relative;
+        min-height: 400vh;
+    }
+
+    .xm6-story__anchor {
+        position: absolute;
+        left: 0;
+        width: 1px;
+        height: 1px;
+        pointer-events: none;
+        opacity: 0;
+    }
+
+    .xm6-stage {
+        position: sticky;
+        top: 0;
+        min-height: 100vh;
+        overflow: hidden;
+        background: #050505;
+        isolation: isolate;
+    }
+
+    .xm6-stage__canvas,
+    .xm6-stage__scrim,
+    .xm6-stage__grid,
+    .xm6-stage__glow {
+        position: absolute;
+        inset: 0;
+    }
+
+    .xm6-stage__canvas {
+        width: 100%;
+        height: 100%;
+        display: block;
+    }
+
+    .xm6-stage__glow {
+        background:
+            radial-gradient(circle at 50% 38%, rgba(0, 214, 255, 0.08), transparent 26%),
+            radial-gradient(circle at 52% 46%, rgba(0, 80, 255, 0.14), transparent 34%);
+        opacity: 0.92;
+    }
+
+    .xm6-stage__scrim {
+        background:
+            linear-gradient(180deg, rgba(5, 5, 5, 0.64), rgba(5, 5, 5, 0.04) 18%, rgba(5, 5, 5, 0.04) 82%, rgba(5, 5, 5, 0.58)),
+            radial-gradient(circle at center, rgba(5, 5, 5, 0) 42%, rgba(5, 5, 5, 0.58) 100%);
+        pointer-events: none;
+    }
+
+    .xm6-stage__grid {
+        background-image:
+            linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+        background-size: 120px 120px;
+        mask-image: radial-gradient(circle at center, rgba(0, 0, 0, 1) 18%, rgba(0, 0, 0, 0.26) 58%, transparent 88%);
+        opacity: 0.28;
+        pointer-events: none;
+    }
+
+    .xm6-stage__progress {
+        position: absolute;
+        left: 50%;
+        bottom: 44px;
+        z-index: 4;
+        width: min(42vw, 320px);
+        height: 2px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.09);
+        transform: translateX(-50%);
+    }
+
+    .xm6-stage__progress span {
+        display: block;
+        width: 0;
+        height: 100%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, var(--xm6-blue), var(--xm6-cyan));
+        box-shadow: 0 0 24px rgba(0, 214, 255, 0.5);
+    }
+
+    .xm6-stage__loading {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        z-index: 5;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 46px;
+        padding: 0 18px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 999px;
+        background: rgba(8, 9, 12, 0.76);
+        backdrop-filter: blur(14px);
+        color: rgba(255, 255, 255, 0.66);
+        font-size: 0.74rem;
+        font-weight: 600;
+        letter-spacing: 0.3em;
+        text-transform: uppercase;
+        transform: translate(-50%, -50%);
+        transition: opacity 320ms ease, transform 320ms ease;
+    }
+
+    .xm6-stage__loading.is-ready {
+        opacity: 0;
+        transform: translate(-50%, -44%);
+        pointer-events: none;
+    }
+
+    .xm6-stage__cue {
+        position: absolute;
+        left: clamp(24px, 5vw, 72px);
+        bottom: 34px;
+        z-index: 4;
+        color: rgba(255, 255, 255, 0.44);
+        font-size: 0.74rem;
+        font-weight: 600;
+        letter-spacing: 0.28em;
+        text-transform: uppercase;
+    }
+
+    .xm6-stage__cue::before {
+        content: '';
+        display: inline-block;
+        width: 34px;
+        height: 1px;
+        margin-right: 12px;
+        margin-bottom: 4px;
+        background: linear-gradient(90deg, rgba(0, 214, 255, 0.85), rgba(0, 80, 255, 0));
+        vertical-align: middle;
+    }
+
+    .xm6-copy-layer,
+    .xm6-callouts {
+        position: absolute;
+        inset: 0;
+        z-index: 3;
+        pointer-events: none;
+    }
+
+    .xm6-copy {
+        --base-x: 0px;
+        --base-y: 0px;
+        --offset-x: 0px;
+        --offset-y: 32px;
+        position: absolute;
+        max-width: min(560px, calc(100vw - 48px));
+        opacity: 0;
+        transform: translate3d(calc(var(--base-x) + var(--offset-x)), calc(var(--base-y) + var(--offset-y)), 0);
+        will-change: transform, opacity;
+    }
+
+    .xm6-copy--center {
+        left: 50%;
+        top: 50%;
+        width: min(820px, calc(100vw - 48px));
+        text-align: center;
+        --base-x: -50%;
+        --base-y: -56%;
+    }
+
+    .xm6-copy--hero-center {
+        top: 40%;
+        width: min(860px, calc(100vw - 48px));
+        --base-y: -50%;
+    }
+
+    .xm6-copy--left {
+        left: clamp(24px, 6vw, 86px);
+        top: 50%;
+        --base-y: -50%;
+    }
+
+    .xm6-copy--right {
+        right: clamp(24px, 6vw, 86px);
+        top: 50%;
+        --base-y: -50%;
+    }
+
+    .xm6-kicker {
+        margin: 0 0 18px;
+        color: rgba(255, 255, 255, 0.56);
+        font-size: 0.76rem;
+        font-weight: 700;
+        letter-spacing: 0.32em;
+        text-transform: uppercase;
+    }
+
+    .xm6-headline,
+    .xm6-section-title,
+    .xm6-section-heading {
+        margin: 0;
+        font-weight: 700;
+        letter-spacing: -0.05em;
+        line-height: 0.95;
+        color: rgba(255, 255, 255, 0.94);
+        text-wrap: balance;
+    }
+
+    .xm6-headline {
+        font-size: clamp(3rem, 7vw, 6rem);
+        background: linear-gradient(180deg, rgba(255, 255, 255, 1) 0%, rgba(227, 244, 255, 0.98) 70%, rgba(0, 214, 255, 0.72) 100%);
+        -webkit-text-fill-color: transparent;
+        -webkit-background-clip: text;
+        background-clip: text;
+        filter: drop-shadow(0 10px 30px rgba(0, 0, 0, 0.24));
+    }
+
+    .xm6-section-title,
+    .xm6-section-heading {
+        font-size: clamp(2.4rem, 5vw, 4.6rem);
+    }
+
+    .xm6-subheadline {
+        margin: 18px 0 0;
+        font-size: clamp(1.2rem, 2vw, 1.6rem);
+        font-weight: 600;
+        letter-spacing: -0.03em;
+        color: rgba(255, 255, 255, 0.84);
+        text-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+    }
+
+    .xm6-body-copy,
+    .xm6-section-copy,
+    .xm6-spec-card p,
+    .xm6-callout p {
+        color: var(--xm6-copy);
+        font-size: clamp(1rem, 1.35vw, 1.1rem);
+        line-height: 1.8;
+        letter-spacing: -0.01em;
+    }
+
+    .xm6-body-copy {
+        margin: 18px 0 0;
+    }
+
+    .xm6-actions {
+        display: inline-flex;
+        flex-wrap: wrap;
+        gap: 14px;
+        margin-top: 32px;
+        pointer-events: auto;
+    }
+
+    .xm6-points {
+        display: grid;
+        gap: 14px;
+        margin-top: 22px;
+    }
+
+    .xm6-points span {
+        padding-left: 18px;
+        color: rgba(255, 255, 255, 0.74);
+        font-size: 1rem;
+        line-height: 1.7;
+        position: relative;
+    }
+
+    .xm6-points span::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 12px;
+        width: 8px;
+        height: 8px;
+        border-radius: 999px;
+        background: linear-gradient(135deg, var(--xm6-blue), var(--xm6-cyan));
+        box-shadow: 0 0 18px rgba(0, 214, 255, 0.45);
+    }
+
+    .xm6-callout {
+        --callout-offset-x: 0px;
+        --callout-offset-y: 0px;
+        position: absolute;
+        max-width: 240px;
+        opacity: 0;
+        transform: translate3d(var(--callout-offset-x), var(--callout-offset-y), 0);
+        will-change: transform, opacity;
+    }
+
+    .xm6-callout--airflow {
+        left: clamp(24px, 9vw, 128px);
+        top: 20%;
+    }
+
+    .xm6-callout--fabric {
+        right: clamp(24px, 8vw, 120px);
+        top: 22%;
+    }
+
+    .xm6-callout--storage {
+        left: clamp(24px, 9vw, 124px);
+        bottom: 18%;
+    }
+
+    .xm6-callout--power {
+        right: clamp(24px, 7vw, 110px);
+        bottom: 22%;
+    }
+
+    .xm6-callout__label {
+        display: block;
+        color: rgba(255, 255, 255, 0.84);
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.28em;
+        text-transform: uppercase;
+    }
+
+    .xm6-callout__line {
+        display: inline-flex;
+        width: 46px;
+        height: 1px;
+        margin: 14px 0 12px;
+        background: linear-gradient(90deg, var(--xm6-cyan), rgba(0, 80, 255, 0));
+    }
+
+    .xm6-section {
+        position: relative;
+        z-index: 2;
+        padding: 132px clamp(24px, 6vw, 88px);
+    }
+
+    .xm6-section--specs {
+        border-top: 1px solid rgba(255, 255, 255, 0.06);
+        background:
+            radial-gradient(circle at top right, rgba(0, 80, 255, 0.12), transparent 22%),
+            linear-gradient(180deg, rgba(10, 10, 12, 0.98), rgba(5, 5, 5, 1));
+    }
+
+    .xm6-section--buy {
+        padding-top: 24px;
+        padding-bottom: 120px;
+        background:
+            radial-gradient(circle at center top, rgba(0, 214, 255, 0.08), transparent 28%),
+            linear-gradient(180deg, rgba(5, 5, 5, 1), rgba(8, 9, 12, 1));
+    }
+
+    .xm6-section__intro {
+        max-width: 760px;
+        margin-bottom: 56px;
+    }
+
+    .xm6-section-copy {
+        margin: 22px 0 0;
+        max-width: 700px;
+    }
+
+    .xm6-spec-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 20px;
+    }
+
+    .xm6-spec-card {
+        position: relative;
+        min-height: 240px;
+        padding: 28px;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 28px;
+        background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.01)),
+            linear-gradient(180deg, rgba(9, 10, 14, 0.94), rgba(6, 7, 9, 0.96));
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+        overflow: hidden;
+    }
+
+    .xm6-spec-card::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: inherit;
+        background: radial-gradient(circle at top left, rgba(0, 214, 255, 0.12), transparent 34%);
+        opacity: 0.8;
+        pointer-events: none;
+    }
+
+    .xm6-spec-card__eyebrow {
+        display: inline-block;
+        margin-bottom: 18px;
+        color: rgba(255, 255, 255, 0.5);
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.28em;
+        text-transform: uppercase;
+    }
+
+    .xm6-spec-card h3 {
+        margin: 0;
+        color: rgba(255, 255, 255, 0.92);
+        font-size: 1.34rem;
+        font-weight: 600;
+        letter-spacing: -0.03em;
+    }
+
+    .xm6-spec-card p {
+        position: relative;
+        z-index: 1;
+        margin: 16px 0 0;
+        font-size: 0.98rem;
+    }
+
+    .xm6-cta-panel {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 28px;
+        align-items: center;
+        padding: clamp(28px, 4vw, 44px);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 32px;
+        background:
+            radial-gradient(circle at top right, rgba(0, 214, 255, 0.16), transparent 24%),
+            linear-gradient(135deg, rgba(0, 80, 255, 0.18), rgba(255, 255, 255, 0.02)),
+            linear-gradient(180deg, rgba(9, 10, 14, 0.96), rgba(5, 5, 5, 0.98));
+        box-shadow:
+            inset 0 1px 0 rgba(255, 255, 255, 0.06),
+            0 28px 60px rgba(0, 0, 0, 0.28);
+    }
+
+    .xm6-cta-panel__content {
+        max-width: 720px;
+    }
+
+    .xm6-cta-panel__actions {
+        display: inline-flex;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        gap: 14px;
+    }
+
+    @media (max-width: 1200px) {
+        .xm6-spec-grid {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+    }
+
+    @media (max-width: 980px) {
+        .xm6-nav {
+            grid-template-columns: auto auto;
+            gap: 14px 18px;
+            padding: 14px;
+        }
+
+        .xm6-nav__links {
+            grid-column: 1 / -1;
+            justify-content: flex-start;
+            overflow-x: auto;
+            padding-bottom: 2px;
+        }
+
+        .xm6-button--nav {
+            justify-self: end;
+        }
+
+        .xm6-copy--left,
+        .xm6-copy--right {
+            left: 50%;
+            right: auto;
+            bottom: 16vh;
+            top: auto;
+            width: min(620px, calc(100vw - 40px));
+            text-align: center;
+            --base-x: -50%;
+            --base-y: 0px;
+        }
+
+        .xm6-callout {
+            max-width: 200px;
+        }
+
+        .xm6-callout--airflow,
+        .xm6-callout--storage {
+            left: 28px;
+        }
+
+        .xm6-callout--fabric,
+        .xm6-callout--power {
+            right: 28px;
+        }
+
+        .xm6-cta-panel {
+            grid-template-columns: 1fr;
+        }
+
+        .xm6-cta-panel__actions {
+            justify-content: flex-start;
+        }
+    }
+
+    @media (max-width: 720px) {
+        .xm6-nav {
+            left: 12px;
+            right: 12px;
+            top: 12px;
+        }
+
+        .xm6-nav__brand-model,
+        .xm6-callouts,
+        .xm6-stage__cue {
+            display: none;
+        }
+
+        .xm6-nav__links a {
+            font-size: 0.84rem;
+        }
+
+        .xm6-actions,
+        .xm6-cta-panel__actions {
+            width: 100%;
+        }
+
+        .xm6-actions .xm6-button,
+        .xm6-cta-panel__actions .xm6-button {
+            width: 100%;
+        }
+
+        .xm6-actions {
+            justify-content: center;
+        }
+
+        .xm6-copy--center {
+            width: calc(100vw - 32px);
+        }
+
+        .xm6-copy--left,
+        .xm6-copy--right {
+            bottom: 14vh;
+            width: calc(100vw - 32px);
+        }
+
+        .xm6-copy--hero-center {
+            top: 34%;
+        }
+
+        .xm6-stage__progress {
+            width: calc(100vw - 64px);
+            bottom: 28px;
+        }
+
+        .xm6-section {
+            padding-left: 18px;
+            padding-right: 18px;
+        }
+
+        .xm6-spec-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .xm6-spec-card {
+            min-height: auto;
+        }
     }
 }
