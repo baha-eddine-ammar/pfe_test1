@@ -1,10 +1,23 @@
+{{--
+|--------------------------------------------------------------------------
+| File Purpose
+|--------------------------------------------------------------------------
+| Reusable partial for one server card in the dashboard fleet grid.
+|
+| Data source:
+| Each $server array is prepared by ServerMonitoringService (or fallback demo
+| data in DashboardController when no servers exist yet).
+|--------------------------------------------------------------------------
+--}}
 @php
+    // Maps server status values to badge color classes.
     $statusClasses = [
-        'emerald' => 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300',
-        'amber' => 'bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300',
-        'pink' => 'bg-pink-100 text-pink-700 dark:bg-pink-500/10 dark:text-pink-300',
+        'Online' => 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300',
+        'Warning' => 'bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300',
+        'Critical' => 'bg-rose-100 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300',
     ];
 
+    // Maps metric color names to text/progress-bar styles.
     $metricStyles = [
         'cyan' => [
             'text' => 'text-sky-600 dark:text-sky-300',
@@ -24,56 +37,100 @@
         ],
     ];
 
-    $serverStatusClass = $statusClasses[$server['statusColor']] ?? 'bg-gray-100 text-gray-500 dark:bg-white/[0.03] dark:text-gray-300';
+    // Final classes and summary text used by the card.
+    $statusClass = $statusClasses[$server['status']] ?? 'bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-300';
+    $serverNarrative = match ($server['status']) {
+        'Critical' => 'Immediate investigation recommended. Resource saturation or stale telemetry is pushing this node into a high-risk state.',
+        'Warning' => 'Load pressure is climbing. Keep this server under observation before it escalates to a critical threshold.',
+        default => 'Telemetry is flowing and the system is operating within expected parameters.',
+    };
 @endphp
 
-<article class="app-card app-card-hover px-6 py-6 sm:px-7">
-    <div class="flex items-start justify-between gap-4">
-        <div>
-            <p class="app-section-title">Server</p>
-            <h3 class="mt-2 font-display text-xl font-semibold tracking-tight text-gray-900 dark:text-white">
-                {{ $server['name'] }}
-            </h3>
-            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                {{ $server['metrics'][0]['value'] }} CPU load
-            </p>
-        </div>
-
-        <span class="app-pill {{ $serverStatusClass }}">
-            {{ $server['status'] }}
-        </span>
-    </div>
-
-    <div class="mt-6 space-y-4">
-        @foreach ($server['metrics'] as $metric)
-            @php
-                $metricStyle = $metricStyles[$metric['color']] ?? $metricStyles['cyan'];
-            @endphp
-
-            <div class="rounded-2xl bg-gray-50 px-4 py-3 dark:bg-white/[0.03]">
-                <div class="mb-2 flex items-center justify-between gap-4">
-                    <span class="text-sm font-medium text-gray-500 dark:text-gray-400">
-                        {{ $metric['label'] }}
-                    </span>
-                    <span class="text-sm font-semibold {{ $metricStyle['text'] }}">
-                        {{ $metric['value'] }}
-                    </span>
+<article class="dashboard-panel dashboard-panel-hover group relative overflow-hidden px-6 py-6 sm:px-7">
+    {{--
+        Top section:
+        server identity, status, and "last seen" information.
+    --}}
+    <div class="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(70,95,255,0.12),_transparent_30%),radial-gradient(circle_at_bottom_left,_rgba(34,211,238,0.08),_transparent_28%)]"></div>
+    <div class="relative z-[1]">
+        <div class="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+            <div class="flex items-start gap-4">
+                <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/80 text-slate-700 shadow-lg shadow-slate-200/60 backdrop-blur dark:bg-white/10 dark:text-white dark:shadow-none">
+                    <svg class="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+                        <rect x="4" y="4" width="16" height="6" rx="2"></rect>
+                        <rect x="4" y="14" width="16" height="6" rx="2"></rect>
+                        <path d="M8 7h.01M8 17h.01"></path>
+                    </svg>
                 </div>
 
-                <div class="metric-progress-track">
-                    <div
-                        class="h-full rounded-full bg-gradient-to-r {{ $metricStyle['bar'] }}"
-                        style="width: {{ $metric['progress'] }}%;"
-                    ></div>
+                <div>
+                    <div class="flex flex-wrap items-center gap-3">
+                        <h3 class="font-display text-2xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white">{{ $server['name'] }}</h3>
+                        <span class="app-pill {{ $statusClass }}">{{ $server['status'] }}</span>
+                    </div>
+
+                    <p class="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
+                        {{ $server['identifier'] ?? 'Monitoring node' }}
+                    </p>
                 </div>
             </div>
-        @endforeach
-    </div>
 
-    @if (isset($server['identifier']) || isset($server['lastSeenLabel']))
-        <div class="mt-4 flex items-center justify-between text-xs font-semibold uppercase tracking-[0.22em] text-gray-400 dark:text-gray-500">
-            <span>{{ $server['identifier'] ?? 'Monitoring node' }}</span>
-            <span>{{ $server['lastSeenLabel'] ?? 'Live sample' }}</span>
+            <div class="dashboard-surface-glass rounded-[24px] px-4 py-3 text-right">
+                <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400 dark:text-slate-500">Last seen</p>
+                <p class="mt-2 font-display text-xl font-semibold text-slate-950 dark:text-white">{{ $server['lastSeenLabel'] ?? 'Live sample' }}</p>
+            </div>
         </div>
-    @endif
+
+        {{--
+            Metric blocks:
+            CPU, RAM, disk, and network are rendered from the $server['metrics'] array.
+        --}}
+        <div class="mt-6 grid gap-4 sm:grid-cols-2">
+            @foreach ($server['metrics'] as $metric)
+                @php
+                    $metricStyle = $metricStyles[$metric['color']] ?? $metricStyles['cyan'];
+                @endphp
+
+                <div class="dashboard-surface-glass rounded-[24px] px-4 py-4">
+                    <div class="flex items-center justify-between gap-4">
+                        <span class="text-sm font-medium text-slate-500 dark:text-slate-400">{{ $metric['label'] }}</span>
+                        <span class="text-sm font-semibold {{ $metricStyle['text'] }}">{{ $metric['value'] }}</span>
+                    </div>
+
+                    <div class="mt-4 metric-progress-track h-2.5 bg-slate-100/80 dark:bg-white/[0.06]">
+                        <div
+                            class="h-full rounded-full bg-gradient-to-r {{ $metricStyle['bar'] }}"
+                            style="width: {{ $metric['progress'] }}%;"
+                        ></div>
+                    </div>
+
+                    <div class="mt-3 flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400 dark:text-slate-500">
+                        <span>Utilization</span>
+                        <span>{{ $metric['progress'] }}%</span>
+                    </div>
+                </div>
+            @endforeach
+        </div>
+
+        {{--
+            Operational note:
+            A short narrative based on the overall server status.
+        --}}
+        <div class="dashboard-surface-glass mt-5 rounded-[24px] px-4 py-4">
+            <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400 dark:text-slate-500">Operational note</p>
+                    <p class="mt-2 max-w-2xl text-sm leading-7 text-slate-500 dark:text-slate-400">{{ $serverNarrative }}</p>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    @foreach (array_slice($server['metrics'], 0, 3) as $metric)
+                        <span class="inline-flex h-2.5 w-10 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10">
+                            <span class="h-full rounded-full bg-slate-900 dark:bg-white" style="width: {{ $metric['progress'] }}%;"></span>
+                        </span>
+                    @endforeach
+                </div>
+            </div>
+        </div>
+    </div>
 </article>

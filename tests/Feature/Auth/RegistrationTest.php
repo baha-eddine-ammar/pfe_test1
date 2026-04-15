@@ -39,10 +39,13 @@ class RegistrationTest extends TestCase
             'status' => 'pending',
             'is_approved' => false,
         ]);
+        $this->assertTrue(User::query()->where('email', 'test@draxmailer')->first()->hasVerifiedEmail());
     }
 
     public function test_valid_department_head_key_creates_an_approved_department_head(): void
     {
+        config()->set('services.registration.department_head_key', '123456789');
+
         $response = $this->post('/register', [
             'name' => 'Head User',
             'email' => 'head@draxmailer',
@@ -63,5 +66,6 @@ class RegistrationTest extends TestCase
             'status' => 'approved',
             'is_approved' => true,
         ]);
+        $this->assertTrue($user->fresh()->hasVerifiedEmail());
     }
 }

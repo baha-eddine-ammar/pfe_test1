@@ -55,7 +55,7 @@
         </div>
     </form>
 
-    @if ($user->isDepartmentHead())
+    @if ($user->hasApprovedStatus())
         <div class="mt-6 rounded-2xl border border-gray-200 p-4 dark:border-gray-800">
             <x-input-label :value="__('Telegram Alerts')" />
 

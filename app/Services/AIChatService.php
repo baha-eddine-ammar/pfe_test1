@@ -1,5 +1,11 @@
 <?php
 
+
+
+//we put the AI logic inside services bcz Because it contains logic (AI processing), not request handling
+//Controller => handle request/response
+//Service => do the real work (logic)
+
 namespace App\Services;
 
 use Illuminate\Support\Collection;
@@ -8,8 +14,11 @@ use Throwable;
 
 class AIChatService
 {
+
+    // Take user message → send to AI → return AI response
     public function reply(string $prompt, array $history = []): array
     {
+        //configuration from env
         $baseUrl = config('services.groq.base_url');
         $model = config('services.groq.model');
         $apiKey = config('services.groq.api_key');
@@ -17,6 +26,9 @@ class AIChatService
         if (! $apiKey || ! $baseUrl || ! $model) {
             return $this->fallback($prompt, 'Missing Groq configuration.');
         }
+
+        //Try calling AI safely
+        //If error happens → go to catch
 
         try {
             $response = Http::baseUrl($baseUrl)

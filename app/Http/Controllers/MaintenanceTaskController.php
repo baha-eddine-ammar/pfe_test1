@@ -1,5 +1,42 @@
 <?php
 
+/*
+|--------------------------------------------------------------------------
+| File Purpose
+|--------------------------------------------------------------------------
+| This controller manages the maintenance module UI and request flow.
+| It does not contain all business logic itself; instead, it validates and
+| authorizes requests, then delegates task workflow operations to a service.
+|
+| Why this file exists:
+| The maintenance feature needs one controller to serve the list page, detail
+| page, create/edit flows, and status updates.
+|
+| When this file is used:
+| - When users open /maintenance
+| - When department heads create/edit/delete tasks
+| - When staff update the status of their assigned tasks
+|
+| FILES TO READ (IN ORDER):
+| 1. routes/web.php
+| 2. app/Policies/MaintenanceTaskPolicy.php
+| 3. app/Http/Controllers/MaintenanceTaskController.php
+| 4. app/Http/Requests/StoreMaintenanceTaskRequest.php
+| 5. app/Http/Requests/UpdateMaintenanceTaskRequest.php
+| 6. app/Http/Requests/UpdateMaintenanceTaskStatusRequest.php
+| 7. app/Services/MaintenanceTaskWorkflowService.php
+| 8. app/Models/MaintenanceTask.php
+| 9. resources/views/maintenance/*
+|
+| HOW TO UNDERSTAND THIS FEATURE:
+| 1. The route points to this controller.
+| 2. The policy decides whether the current user is allowed to act.
+| 3. The request class validates incoming data.
+| 4. This controller prepares filters/data for the UI.
+| 5. The workflow service performs database writes and notifications.
+| 6. The Blade views display the tasks and forms.
+*/
+
 namespace App\Http\Controllers;
 
 use App\Http\Requests\StoreMaintenanceTaskRequest;
@@ -7,146 +44,124 @@ use App\Http\Requests\UpdateMaintenanceTaskRequest;
 use App\Http\Requests\UpdateMaintenanceTaskStatusRequest;
 use App\Models\MaintenanceTask;
 use App\Models\User;
-use App\Services\NotificationService;
+use App\Services\MaintenanceTaskWorkflowService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class MaintenanceTaskController extends Controller
 {
+    // The workflow service contains the write-side business logic:
+    // task creation, assignment, status changes, history, and notifications.
+    public function __construct(
+        protected MaintenanceTaskWorkflowService $workflowService
+    ) {
+    }
+
+    /*
+    |----------------------------------------------------------------------
+    | Maintenance workspace page
+    |----------------------------------------------------------------------
+    | Flow:
+    | Request filters -> authorized query -> stats + task list -> view
+    |
+    | Important variables:
+    | - $filters: validated query-string filters coming from the page form.
+    | - $viewer: the currently authenticated user.
+    | - $staffUsers: used to build the assign/filter UI for department heads.
+    | - $visibleTasksQuery: base query representing only the tasks this user may see.
+    | - $tasks: paginated task list shown in the table/cards.
+    */
     public function index(Request $request): View
     {
         $this->authorize('viewAny', MaintenanceTask::class);
 
-        $validated = $request->validate([
+        $filters = $request->validate([
             'search' => ['nullable', 'string', 'max:255'],
             'priority' => ['nullable', Rule::in(MaintenanceTask::priorityOptions())],
             'status' => ['nullable', Rule::in(MaintenanceTask::statusOptions())],
             'assigned_to_user_id' => [
                 'nullable',
                 'integer',
-                Rule::exists('users', 'id')->where(function ($query) {
-                    $query->whereIn('role', ['staff', 'it_staff'])
-                        ->where('status', 'approved');
-                }),
+                Rule::exists('users', 'id'),
             ],
             'date_from' => ['nullable', 'date'],
             'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
+            'overdue' => ['nullable', 'in:0,1'],
         ]);
 
-        $tasksQuery = MaintenanceTask::query()
-            ->with(['createdByUser', 'assignedToUser'])
-            ->latest('maintenance_date');
+        $viewer = $request->user();
+        $staffUsers = $viewer->isDepartmentHead()
+            ? $this->assignableUsers()
+            : collect();
 
-        if ($request->user()->isStaff()) {
-            $tasksQuery->where('assigned_to_user_id', $request->user()->id);
-        } elseif (! empty($validated['assigned_to_user_id'])) {
-            $tasksQuery->where('assigned_to_user_id', $validated['assigned_to_user_id']);
-        }
+        $visibleTasksQuery = MaintenanceTask::query()->visibleTo($viewer);
 
-        if (! empty($validated['search'])) {
-            $search = trim($validated['search']);
-
-            $tasksQuery->where(function ($query) use ($search) {
-                $query->where('server_room', 'like', '%' . $search . '%')
-                    ->orWhere('fix_description', 'like', '%' . $search . '%');
-            });
-        }
-
-        if (! empty($validated['priority'])) {
-            $tasksQuery->where('priority', $validated['priority']);
-        }
-
-        if (! empty($validated['status'])) {
-            $tasksQuery->where('status', $validated['status']);
-        }
-
-        if (! empty($validated['date_from'])) {
-            $tasksQuery->whereDate('maintenance_date', '>=', $validated['date_from']);
-        }
-
-        if (! empty($validated['date_to'])) {
-            $tasksQuery->whereDate('maintenance_date', '<=', $validated['date_to']);
-        }
-
-        $tasks = $tasksQuery->get();
+        // Data flow:
+        // Database -> MaintenanceTask scopes -> paginated list -> Blade page
+        $tasks = MaintenanceTask::query()
+            ->withListingRelations()
+            ->visibleTo($viewer)
+            ->applyFilters($filters)
+            ->latest('maintenance_date')
+            ->paginate($viewer->isDepartmentHead() ? 12 : 9)
+            ->withQueryString();
 
         return view('maintenance.index', [
             'tasks' => $tasks,
             'filters' => [
-                'search' => $validated['search'] ?? '',
-                'priority' => $validated['priority'] ?? '',
-                'status' => $validated['status'] ?? '',
-                'assigned_to_user_id' => $validated['assigned_to_user_id'] ?? '',
-                'date_from' => $validated['date_from'] ?? '',
-                'date_to' => $validated['date_to'] ?? '',
+                'search' => $filters['search'] ?? '',
+                'priority' => $filters['priority'] ?? '',
+                'status' => $filters['status'] ?? '',
+                'assigned_to_user_id' => (string) ($filters['assigned_to_user_id'] ?? ''),
+                'date_from' => $filters['date_from'] ?? '',
+                'date_to' => $filters['date_to'] ?? '',
+                'overdue' => (string) ($filters['overdue'] ?? ''),
             ],
             'priorityOptions' => MaintenanceTask::priorityOptions(),
             'statusOptions' => MaintenanceTask::statusOptions(),
-            'itStaffUsers' => $request->user()->isDepartmentHead()
-                ? $this->approvedItStaffUsers()
-                : collect(),
+            'itStaffUsers' => $staffUsers,
+            'assigneeDirectory' => $staffUsers
+                ->map(fn (User $user) => [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'department' => $user->department,
+                ])
+                ->values(),
+            'stats' => $this->buildStats($visibleTasksQuery, $viewer),
         ]);
     }
 
-    public function create(): View
+    // The create page was replaced by an inline creator on the index page.
+    // This redirect keeps the old route working without breaking navigation.
+    public function create(): RedirectResponse
     {
         $this->authorize('create', MaintenanceTask::class);
 
-        return view('maintenance.create', [
-            'itStaffUsers' => $this->approvedItStaffUsers(),
-            'priorityOptions' => MaintenanceTask::priorityOptions(),
-            'statusOptions' => MaintenanceTask::statusOptions(),
-        ]);
+        return redirect()
+            ->route('maintenance.index')
+            ->with('success', 'Use the task creator on the maintenance page to add a new maintenance task.');
     }
 
-    public function store(StoreMaintenanceTaskRequest $request, NotificationService $notificationService): RedirectResponse
+    // Validated form data is passed to the workflow service.
+    // That service creates the task, records history, and sends notifications.
+    public function store(StoreMaintenanceTaskRequest $request): RedirectResponse
     {
-        $validated = $request->validated();
-
-        $maintenanceTask = DB::transaction(function () use ($request, $validated) {
-            $maintenanceTask = MaintenanceTask::create([
-                'server_room' => trim($validated['server_room']),
-                'maintenance_date' => $validated['maintenance_date'],
-                'fix_description' => trim($validated['fix_description']),
-                'priority' => $validated['priority'],
-                'status' => $validated['status'],
-                'assigned_to_user_id' => $validated['assigned_to_user_id'],
-                'created_by_user_id' => $request->user()->id,
-            ]);
-
-            $maintenanceTask->load('assignedToUser');
-
-            $this->logHistory(
-                $maintenanceTask,
-                $request->user()->id,
-                'Task created',
-                'Maintenance task created and assigned to ' . $maintenanceTask->assignedToUser->name . '.',
-                null,
-                $maintenanceTask->status
-            );
-
-            return $maintenanceTask;
-        });
-
-        if ($maintenanceTask->assignedToUser) {
-            $notificationService->notifyUser(
-                $maintenanceTask->assignedToUser,
-                'maintenance.assigned',
-                'New maintenance task assigned',
-                $maintenanceTask->server_room . ' on ' . $maintenanceTask->maintenance_date->format('d M Y H:i'),
-                route('maintenance.show', $maintenanceTask, false),
-                ['maintenance_task_id' => $maintenanceTask->id]
-            );
-        }
+        $maintenanceTask = $this->workflowService->createTask(
+            $request->validated(),
+            $request->user()
+        );
 
         return redirect()
-            ->route('maintenance.show', $maintenanceTask)
-            ->with('success', 'Maintenance task created successfully.');
+            ->route('maintenance.index')
+            ->with('success', "Maintenance task #{$maintenanceTask->id} was created and the assignee has been notified.");
     }
 
+    // Detail page for a single maintenance task.
+    // Extra relationships are eager loaded so the view can show creator,
+    // assignee, and status history without N+1 queries.
     public function show(MaintenanceTask $maintenanceTask): View
     {
         $this->authorize('view', $maintenanceTask);
@@ -163,148 +178,161 @@ class MaintenanceTaskController extends Controller
         ]);
     }
 
+    // Department heads use this page to edit an existing task.
     public function edit(MaintenanceTask $maintenanceTask): View
     {
         $this->authorize('update', $maintenanceTask);
 
         return view('maintenance.edit', [
             'maintenanceTask' => $maintenanceTask,
-            'itStaffUsers' => $this->approvedItStaffUsers(),
+            'itStaffUsers' => $this->assignableUsers(),
             'priorityOptions' => MaintenanceTask::priorityOptions(),
             'statusOptions' => MaintenanceTask::statusOptions(),
         ]);
     }
 
+    // Updates the main task record.
+    // The service decides whether assignment/status history should also be recorded.
     public function update(UpdateMaintenanceTaskRequest $request, MaintenanceTask $maintenanceTask): RedirectResponse
     {
-        $validated = $request->validated();
+        $this->workflowService->updateTask(
+            $maintenanceTask,
+            $request->validated(),
+            $request->user()
+        );
 
-        DB::transaction(function () use ($request, $validated, $maintenanceTask) {
-            $oldStatus = $maintenanceTask->status;
-            $oldAssignedToUserId = $maintenanceTask->assigned_to_user_id;
-            $oldMaintenanceDate = $maintenanceTask->maintenance_date;
-            $oldPriority = $maintenanceTask->priority;
-
-            $maintenanceTask->update([
-                'server_room' => trim($validated['server_room']),
-                'maintenance_date' => $validated['maintenance_date'],
-                'fix_description' => trim($validated['fix_description']),
-                'priority' => $validated['priority'],
-                'status' => $validated['status'],
-                'assigned_to_user_id' => $validated['assigned_to_user_id'],
-            ]);
-
-            $maintenanceTask->load('assignedToUser');
-
-            $this->logHistory(
-                $maintenanceTask,
-                $request->user()->id,
-                'Task updated',
-                'Maintenance task details were updated.',
-                $oldStatus,
-                $maintenanceTask->status
-            );
-
-            if ((int) $oldAssignedToUserId !== (int) $maintenanceTask->assigned_to_user_id) {
-                $this->logHistory(
-                    $maintenanceTask,
-                    $request->user()->id,
-                    'Assignment updated',
-                    'Task was reassigned to ' . $maintenanceTask->assignedToUser->name . '.',
-                    null,
-                    null
-                );
-            }
-
-            if ((string) $oldMaintenanceDate !== (string) $maintenanceTask->maintenance_date) {
-                $this->logHistory(
-                    $maintenanceTask,
-                    $request->user()->id,
-                    'Schedule updated',
-                    'Maintenance date changed to ' . $maintenanceTask->maintenance_date->format('d M Y H:i') . '.',
-                    null,
-                    null
-                );
-            }
-
-            if ($oldPriority !== $maintenanceTask->priority) {
-                $this->logHistory(
-                    $maintenanceTask,
-                    $request->user()->id,
-                    'Priority updated',
-                    'Priority changed from ' . $oldPriority . ' to ' . $maintenanceTask->priority . '.',
-                    null,
-                    null
-                );
-            }
-
-            if ($oldStatus !== $maintenanceTask->status) {
-                $this->logHistory(
-                    $maintenanceTask,
-                    $request->user()->id,
-                    'Status updated',
-                    'Status changed from ' . $oldStatus . ' to ' . $maintenanceTask->status . '.',
-                    $oldStatus,
-                    $maintenanceTask->status
-                );
-            }
-        });
-
-        return redirect()
-            ->route('maintenance.show', $maintenanceTask)
-            ->with('success', 'Maintenance task updated successfully.');
+        return $this->redirectToSafeTarget(
+            $request,
+            route('maintenance.index')
+        )->with('success', "Maintenance task #{$maintenanceTask->id} was updated successfully.");
     }
 
+    // Deletes a task after authorization.
+    public function destroy(Request $request, MaintenanceTask $maintenanceTask): RedirectResponse
+    {
+        $this->authorize('delete', $maintenanceTask);
+
+        $taskId = $maintenanceTask->id;
+        $this->workflowService->deleteTask($maintenanceTask);
+
+        return $this->redirectToSafeTarget(
+            $request,
+            route('maintenance.index')
+        )->with('success', "Maintenance task #{$taskId} was deleted.");
+    }
+
+    // Staff and department heads use this endpoint to move a task between
+    // statuses such as pending, in_progress, or completed.
     public function updateStatus(UpdateMaintenanceTaskStatusRequest $request, MaintenanceTask $maintenanceTask): RedirectResponse
     {
         $validated = $request->validated();
 
-        DB::transaction(function () use ($request, $validated, $maintenanceTask) {
-            $oldStatus = $maintenanceTask->status;
+        $this->workflowService->updateStatus(
+            $maintenanceTask,
+            $validated['status'],
+            $request->user(),
+            $validated['note'] ?? null
+        );
 
-            $maintenanceTask->update([
-                'status' => $validated['status'],
-            ]);
-
-            $this->logHistory(
-                $maintenanceTask,
-                $request->user()->id,
-                'Status updated',
-                'Status changed from ' . $oldStatus . ' to ' . $maintenanceTask->status . '.',
-                $oldStatus,
-                $maintenanceTask->status
-            );
-        });
-
-        return redirect()
-            ->route('maintenance.show', $maintenanceTask)
-            ->with('success', 'Maintenance task status updated successfully.');
+        return $this->redirectToSafeTarget(
+            $request,
+            route('maintenance.index')
+        )->with('success', "Maintenance task #{$maintenanceTask->id} status was updated.");
     }
 
-    protected function approvedItStaffUsers()
+    // This list populates the assignment and filtering UI.
+    // It currently includes every user in the database, ordered alphabetically.
+    protected function assignableUsers()
     {
         return User::query()
-            ->whereIn('role', ['staff', 'it_staff'])
-            ->where('status', 'approved')
+            ->select(['id', 'name', 'email', 'department'])
             ->orderBy('name')
             ->get();
     }
 
-    protected function logHistory(
-        MaintenanceTask $maintenanceTask,
-        ?int $actorId,
-        string $action,
-        ?string $description = null,
-        ?string $oldStatus = null,
-        ?string $newStatus = null
-    ): void {
-        $maintenanceTask->histories()->create([
-            'actor_id' => $actorId,
-            'action' => $action,
-            'description' => $description,
-            'old_status' => $oldStatus,
-            'new_status' => $newStatus,
-            'created_at' => now(),
-        ]);
+    // Summary cards shown at the top of the maintenance workspace.
+    // The same base visible-tasks query is cloned so each metric stays limited
+    // to the current user's allowed task set.
+    protected function buildStats($visibleTasksQuery, User $viewer): array
+    {
+        $total = (clone $visibleTasksQuery)->count();
+        $overdue = (clone $visibleTasksQuery)
+            ->where('maintenance_date', '<', now())
+            ->whereNotIn('status', [MaintenanceTask::STATUS_COMPLETED, MaintenanceTask::STATUS_CANCELLED])
+            ->count();
+        $urgent = (clone $visibleTasksQuery)
+            ->where('priority', MaintenanceTask::PRIORITY_URGENT)
+            ->count();
+        $inProgress = (clone $visibleTasksQuery)
+            ->where('status', MaintenanceTask::STATUS_IN_PROGRESS)
+            ->count();
+        $completedThisWeek = (clone $visibleTasksQuery)
+            ->where('status', MaintenanceTask::STATUS_COMPLETED)
+            ->whereBetween('updated_at', [now()->startOfWeek(), now()->endOfWeek()])
+            ->count();
+        $dueToday = (clone $visibleTasksQuery)
+            ->whereDate('maintenance_date', now()->toDateString())
+            ->count();
+
+        if ($viewer->isDepartmentHead()) {
+            return [
+                [
+                    'label' => 'All tasks',
+                    'value' => $total,
+                    'caption' => 'Across your maintenance workspace',
+                ],
+                [
+                    'label' => 'Overdue',
+                    'value' => $overdue,
+                    'caption' => 'Past due and still unresolved',
+                ],
+                [
+                    'label' => 'Urgent',
+                    'value' => $urgent,
+                    'caption' => 'Priority queue needing fast response',
+                ],
+                [
+                    'label' => 'Completed this week',
+                    'value' => $completedThisWeek,
+                    'caption' => 'Tasks closed by the team this week',
+                ],
+            ];
+        }
+
+        return [
+            [
+                'label' => 'My tasks',
+                'value' => $total,
+                'caption' => 'Tasks assigned directly to you',
+            ],
+            [
+                'label' => 'Due today',
+                'value' => $dueToday,
+                'caption' => 'Scheduled for today',
+            ],
+            [
+                'label' => 'In progress',
+                'value' => $inProgress,
+                'caption' => 'Work currently underway',
+            ],
+            [
+                'label' => 'Overdue',
+                'value' => $overdue,
+                'caption' => 'Items that need immediate follow-up',
+            ],
+        ];
+    }
+
+    // Allows the UI to send users back to the correct page after form actions.
+    // Only relative application paths are accepted to avoid unsafe redirects.
+    protected function redirectToSafeTarget(Request $request, string $fallback): RedirectResponse
+    {
+        $target = $request->string('redirect_to')->trim()->toString();
+
+        if ($target !== '' && str_starts_with($target, '/') && ! str_starts_with($target, '//')) {
+            return redirect($target);
+        }
+
+        return redirect($fallback);
     }
 }

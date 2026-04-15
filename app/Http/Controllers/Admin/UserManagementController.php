@@ -21,8 +21,12 @@ class UserManagementController extends Controller
             'pendingUsers' => User::query()
                 ->where('status', 'pending')
                 ->latest()
-                ->get(),
-            'users' => User::query()->latest()->get(),
+                ->paginate(10, ['*'], 'pending_page')
+                ->withQueryString(),
+            'users' => User::query()
+                ->latest()
+                ->paginate(15, ['*'], 'users_page')
+                ->withQueryString(),
         ]);
     }
 

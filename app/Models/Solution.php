@@ -14,6 +14,9 @@ class Solution extends Model
         'body',
     ];
 
+
+    //explain $solution->user
+    //$solution->attachments
     public function problem(): BelongsTo
     {
         return $this->belongsTo(Problem::class);

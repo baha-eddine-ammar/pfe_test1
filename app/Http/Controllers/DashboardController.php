@@ -1,5 +1,37 @@
 <?php
 
+/*
+|--------------------------------------------------------------------------
+| File Purpose
+|--------------------------------------------------------------------------
+| This controller powers the main dashboard page and its live metric feeds.
+| It gathers the data needed by the dashboard Blade view and also exposes
+| small JSON endpoints that the frontend polls to refresh the UI.
+|
+| Why this file exists:
+| The dashboard needs one place to assemble environmental telemetry
+| (temperature, humidity, airflow, power usage), trend data, and server cards.
+|
+| When this file is used:
+| - When a user opens /dashboard
+| - When the frontend requests /dashboard/*-feed endpoints for live updates
+|
+| FILES TO READ (IN ORDER):
+| 1. routes/web.php
+| 2. app/Http/Controllers/DashboardController.php
+| 3. app/Services/ServerMonitoringService.php
+| 4. app/Models/Server.php and app/Models/ServerMetric.php
+| 5. resources/views/dashboard.blade.php
+| 6. resources/views/components/dashboard/*
+|
+| HOW TO UNDERSTAND THIS FEATURE:
+| 1. The route points to this controller.
+| 2. This controller resolves current values from the session or query string.
+| 3. It converts raw values into UI-friendly payloads.
+| 4. It loads server cards from the database or fallback demo data.
+| 5. The dashboard Blade page renders those payloads into cards and charts.
+*/
+
 namespace App\Http\Controllers;
 
 use App\Models\Server;
@@ -10,11 +42,30 @@ use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
+    // The service is injected by Laravel's container.
+    // It converts real server + metric rows into card data for the UI.
     public function __construct(
         private readonly ServerMonitoringService $serverMonitoringService,
     ) {
     }
 
+    /*
+    |----------------------------------------------------------------------
+    | Main dashboard page
+    |----------------------------------------------------------------------
+    | Flow:
+    | Request -> session/query values -> payload builders -> view('dashboard')
+    |
+    | Important variables:
+    | - $temperature / $humidity / $airFlow / $powerUsage:
+    |   current metric values resolved from the session or URL query.
+    | - temperatureData / humidityData / airFlowData / powerUsageData:
+    |   arrays prepared specifically for the Blade UI.
+    | - trendData:
+    |   historical-looking chart data used by the telemetry graph.
+    | - servers:
+    |   server cards built from the database or fallback demo data.
+    */
     public function __invoke(Request $request): View
     {
         $temperature = $this->resolveTemperature($request);
@@ -28,11 +79,15 @@ class DashboardController extends Controller
             'humidityData' => $this->buildHumidityPayload($humidity),
             'airFlowData' => $this->buildAirFlowPayload($airFlow),
             'powerUsageData' => $this->buildPowerUsagePayload($powerUsage),
+            // Trend data is used by the frontend chart to show movement over time.
             'trendData' => $this->resolveTrendData($request),
+            // Server cards come from the database when available.
+            // If no servers exist yet, fallback demo cards keep the dashboard useful.
             'servers' => $this->serverCards(),
         ]);
     }
 
+    // JSON endpoint used by the frontend to refresh only the temperature card.
     public function temperatureFeed(Request $request): JsonResponse
     {
         $temperature = $this->resolveTemperature($request, true);
@@ -66,6 +121,12 @@ class DashboardController extends Controller
         return response()->json($this->resolveTrendData($request, true));
     }
 
+    // These resolve* methods support two dashboard modes:
+    // 1. initial page load
+    // 2. simulated next value for polling-based live updates
+    //
+    // If the query string contains an explicit value, that value wins.
+    // Otherwise the current value is taken from the session.
     private function resolveTemperature(Request $request, bool $simulateNext = false): float
     {
         if ($request->filled('temp')) {
@@ -86,6 +147,7 @@ class DashboardController extends Controller
         return round($nextTemperature, 1);
     }
 
+    // Same idea as resolveTemperature(), but for humidity data.
     private function resolveHumidity(Request $request, bool $simulateNext = false): float
     {
         if ($request->filled('humidity')) {
@@ -106,6 +168,7 @@ class DashboardController extends Controller
         return round($nextHumidity, 1);
     }
 
+    // Same pattern again for airflow data.
     private function resolveAirFlow(Request $request, bool $simulateNext = false): float
     {
         if ($request->filled('airflow')) {
@@ -126,6 +189,7 @@ class DashboardController extends Controller
         return round($nextAirFlow, 1);
     }
 
+    // Same pattern again for power usage data.
     private function resolvePowerUsage(Request $request, bool $simulateNext = false): float
     {
         if ($request->filled('power')) {
@@ -146,6 +210,11 @@ class DashboardController extends Controller
         return round($nextPowerUsage, 1);
     }
 
+    // These payload builders convert raw numeric values into UI-friendly arrays.
+    // Each payload contains:
+    // - value: the number shown to the user
+    // - status: Stable / Warning / Critical
+    // - ringDegrees: how much of the circular indicator should be filled
     private function buildTemperaturePayload(float $temperature): array
     {
         if ($temperature >= 30) {
@@ -165,6 +234,7 @@ class DashboardController extends Controller
         ];
     }
 
+    // Humidity becomes critical if it is too high or too low.
     private function buildHumidityPayload(float $humidity): array
     {
         if ($humidity >= 70 || $humidity <= 30) {
@@ -184,6 +254,8 @@ class DashboardController extends Controller
         ];
     }
 
+    // Airflow uses a lower-is-bad interpretation because poor airflow can
+    // indicate cooling problems in the server room.
     private function buildAirFlowPayload(float $airFlow): array
     {
         if ($airFlow < 3.5) {
@@ -203,6 +275,7 @@ class DashboardController extends Controller
         ];
     }
 
+    // Higher power usage is treated as riskier because it can indicate heavier load.
     private function buildPowerUsagePayload(float $powerUsage): array
     {
         if ($powerUsage >= 85) {
@@ -222,6 +295,13 @@ class DashboardController extends Controller
         ];
     }
 
+    /*
+    |----------------------------------------------------------------------
+    | Trend data for charts
+    |----------------------------------------------------------------------
+    | This method stores chart history in the session so repeated refreshes can
+    | show a moving graph without needing a real telemetry source yet.
+    */
     private function resolveTrendData(Request $request, bool $simulateNext = false): array
     {
         $trendData = $request->session()->get('demo_trend_data', [
@@ -254,6 +334,7 @@ class DashboardController extends Controller
         return $trendData;
     }
 
+    // Generates the next point inside a safe numeric range.
     private function nextMetricValue(float $current, float $min, float $max, float $step): float
     {
         $delta = mt_rand((int) (-10 * $step), (int) (10 * $step)) / 10;
@@ -261,6 +342,16 @@ class DashboardController extends Controller
         return round(max($min, min($max, $current + $delta)), 1);
     }
 
+    /*
+    |----------------------------------------------------------------------
+    | Server cards
+    |----------------------------------------------------------------------
+    | Flow:
+    | Database -> Server model -> latestMetric relation -> ServerMonitoringService
+    |
+    | If there are no real servers yet, fallback cards keep the dashboard useful
+    | during demos or early development.
+    */
     private function serverCards(): array
     {
         $servers = Server::query()
@@ -275,6 +366,7 @@ class DashboardController extends Controller
         return $this->fallbackServerCards();
     }
 
+    // Demo-only cards used when the servers table is still empty.
     private function fallbackServerCards(): array
     {
         return [

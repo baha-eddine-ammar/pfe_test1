@@ -1,5 +1,25 @@
 <?php
 
+/*
+|--------------------------------------------------------------------------
+| File Purpose
+|--------------------------------------------------------------------------
+| Authentication route definitions.
+|
+| Why this file exists:
+| Laravel separates auth-related routes from the main web routes so login,
+| registration, password reset, and email verification stay organized.
+|
+| When this file is used:
+| During browser requests related to authentication.
+|
+| FILES TO READ (IN ORDER):
+| 1. routes/auth.php
+| 2. app/Http/Controllers/Auth/*
+| 3. app/Models/User.php
+| 4. resources/views/auth/*
+*/
+
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\ConfirmablePasswordController;
 use App\Http\Controllers\Auth\EmailVerificationNotificationController;
@@ -11,6 +31,8 @@ use App\Http\Controllers\Auth\RegisteredUserController;
 use App\Http\Controllers\Auth\VerifyEmailController;
 use Illuminate\Support\Facades\Route;
 
+// Guest-only auth pages:
+// registration, login, and password reset entry points.
 Route::middleware('guest')->group(function () {
     Route::get('register', [RegisteredUserController::class, 'create'])
         ->name('register');
@@ -35,6 +57,8 @@ Route::middleware('guest')->group(function () {
         ->name('password.store');
 });
 
+// Authenticated account-security routes:
+// email verification, password confirmation/update, and logout.
 Route::middleware('auth')->group(function () {
     Route::get('verify-email', EmailVerificationPromptController::class)
         ->name('verification.notice');

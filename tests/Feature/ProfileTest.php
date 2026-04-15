@@ -29,7 +29,7 @@ class ProfileTest extends TestCase
             ->actingAs($user)
             ->patch('/profile', [
                 'name' => 'Test User',
-                'email' => 'test@example.com',
+                'email' => 'test.user@draxmailer',
             ]);
 
         $response
@@ -39,8 +39,46 @@ class ProfileTest extends TestCase
         $user->refresh();
 
         $this->assertSame('Test User', $user->name);
-        $this->assertSame('test@example.com', $user->email);
+        $this->assertSame('test.user@draxmailer', $user->email);
         $this->assertNull($user->email_verified_at);
+    }
+
+    public function test_profile_email_must_keep_the_internal_domain(): void
+    {
+        $user = User::factory()->create();
+
+        $response = $this
+            ->actingAs($user)
+            ->from('/profile')
+            ->patch('/profile', [
+                'name' => 'Test User',
+                'email' => 'external@example.com',
+            ]);
+
+        $response
+            ->assertSessionHasErrors('email')
+            ->assertRedirect('/profile');
+
+        $this->assertSame($user->email, $user->fresh()->email);
+    }
+
+    public function test_approved_staff_can_start_the_telegram_connection_flow(): void
+    {
+        config()->set('services.telegram.bot_username', 'server_room_bot');
+
+        $user = User::factory()->create([
+            'role' => 'staff',
+            'status' => 'approved',
+            'is_approved' => true,
+        ]);
+
+        $response = $this
+            ->actingAs($user)
+            ->post(route('profile.telegram.connect'));
+
+        $response->assertRedirect();
+        $this->assertStringStartsWith('https://t.me/server_room_bot?start=connect_', $response->headers->get('Location'));
+        $this->assertNotNull($user->fresh()->telegram_link_token);
     }
 
     public function test_email_verification_status_is_unchanged_when_the_email_address_is_unchanged(): void

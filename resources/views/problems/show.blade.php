@@ -107,8 +107,7 @@
                             </div>
 
                             <a
-                                href="{{ asset('storage/' . $attachment->file_path) }}"
-                                target="_blank"
+                                href="{{ route('problems.attachments.download', $attachment) }}"
                                 class="app-button-secondary"
                             >
                                 Open File
@@ -183,8 +182,7 @@
                                                     </div>
 
                                                     <a
-                                                        href="{{ asset('storage/' . $attachment->file_path) }}"
-                                                        target="_blank"
+                                                        href="{{ route('solutions.attachments.download', $attachment) }}"
                                                         class="app-button-secondary"
                                                     >
                                                         Open File

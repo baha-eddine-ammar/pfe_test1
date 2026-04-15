@@ -6,6 +6,7 @@ use App\Models\Report;
 use App\Models\User;
 use App\Services\Reports\ReportGenerationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class ReportGenerationTest extends TestCase
@@ -15,6 +16,39 @@ class ReportGenerationTest extends TestCase
     public function test_authenticated_user_can_generate_a_report(): void
     {
         $user = User::factory()->create();
+
+        $response = $this
+            ->actingAs($user)
+            ->post(route('reports.store'), [
+                'type' => 'daily',
+                'reference_date' => '2026-03-12',
+            ]);
+
+        $report = Report::query()->with('latestAiSummary')->first();
+
+        $response
+            ->assertSessionHasNoErrors()
+            ->assertRedirect(route('reports.show', $report));
+
+        $this->assertNotNull($report);
+        $this->assertSame('daily', $report->type);
+        $this->assertNotEmpty($report->summary);
+        $this->assertNotNull($report->latestAiSummary);
+    }
+
+    public function test_report_generation_still_succeeds_when_telegram_is_unreachable(): void
+    {
+        config()->set('services.telegram.bot_token', 'telegram-test-token');
+        Http::fake(fn () => Http::failedConnection('Telegram API is unavailable.'));
+
+        $user = User::factory()->create();
+
+        User::factory()->create([
+            'role' => 'department_head',
+            'status' => 'approved',
+            'is_approved' => true,
+            'telegram_chat_id' => '123456789',
+        ]);
 
         $response = $this
             ->actingAs($user)

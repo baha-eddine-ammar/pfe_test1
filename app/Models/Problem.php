@@ -15,15 +15,22 @@ class Problem extends Model
         'status',
     ];
 
+
+        //This problem belongs to ONE user
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
     }
 
+
+        //One problem → has MANY solutions
+        //so u can get $problem->user
     public function solutions(): HasMany
     {
         return $this->hasMany(Solution::class);
     }
+
+    //One problem → has MANY files (attachments)
 
     public function attachments(): HasMany
     {

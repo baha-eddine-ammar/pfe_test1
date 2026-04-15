@@ -52,6 +52,25 @@ class AuthenticationTest extends TestCase
         ]);
     }
 
+    public function test_rejected_users_can_not_authenticate(): void
+    {
+        $user = User::factory()->create([
+            'status' => 'rejected',
+            'is_approved' => false,
+        ]);
+
+        $response = $this->from('/login')->post('/login', [
+            'email' => $user->email,
+            'password' => 'password',
+        ]);
+
+        $this->assertGuest();
+        $response->assertRedirect('/login');
+        $response->assertSessionHasErrors([
+            'email' => 'Your account does not currently have access.',
+        ]);
+    }
+
     public function test_users_can_not_authenticate_with_invalid_password(): void
     {
         $user = User::factory()->create();

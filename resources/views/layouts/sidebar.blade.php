@@ -1,7 +1,23 @@
+{{--
+|--------------------------------------------------------------------------
+| File Purpose
+|--------------------------------------------------------------------------
+| Shared sidebar navigation for authenticated pages.
+|
+| Why this file exists:
+| It centralizes the navigation menu so all pages use the same route links,
+| icons, and role-based visibility.
+|
+| When this file is used:
+| Inside resources/views/layouts/app.blade.php on every authenticated page.
+|--------------------------------------------------------------------------
+--}}
 @php
+    // Current user decides whether the administration group should appear.
     $user = auth()->user();
     $isApprovedDepartmentHead = $user?->isDepartmentHead() && $user?->hasApprovedStatus();
 
+    // Menu definition used to render grouped navigation links.
     $menuGroups = [
         [
             'title' => 'Menu',
@@ -33,6 +49,7 @@
         ];
     }
 
+    // SVG icon library used by the menu items below.
     $iconMap = [
         'dashboard' => <<<'SVG'
 <svg class="h-5 w-5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7">
@@ -133,6 +150,10 @@ SVG,
     class="app-sidebar custom-scrollbar fixed inset-y-0 left-0 z-50 flex w-[290px] -translate-x-full flex-col overflow-y-auto px-5 py-6 transition-transform duration-300 ease-in-out"
     :class="$store.sidebar.open ? 'translate-x-0' : '-translate-x-full'"
 >
+    {{--
+        Brand header:
+        project name + mobile close button
+    --}}
     <div class="flex items-center justify-between">
         <a href="{{ route('dashboard') }}" class="flex items-center gap-3">
             <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-500 text-white shadow-lg shadow-brand-500/20">
@@ -151,6 +172,10 @@ SVG,
         </button>
     </div>
 
+    {{--
+        Navigation groups:
+        routeIs() is used to highlight the current page.
+    --}}
     <nav class="mt-10 space-y-8">
         @foreach ($menuGroups as $group)
             <section>
@@ -184,6 +209,10 @@ SVG,
         @endforeach
     </nav>
 
+    {{--
+        Access summary:
+        shows the logged-in user, approval state, and department.
+    --}}
     <div class="app-card mt-auto px-4 py-5">
         <p class="app-section-title">Current access</p>
         <div class="mt-4 flex items-center justify-between gap-4">

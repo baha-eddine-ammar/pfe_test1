@@ -57,7 +57,8 @@ class ReportGenerationService
                 ."Generated at: {$report->generated_at?->format('Y-m-d H:i:s')}";
 
             User::query()
-                ->where('role', 'department_head')
+                ->departmentHeads()
+                ->approved()
                 ->whereNotNull('telegram_chat_id')
                 ->get()
                 ->each(function (User $departmentHead) use ($message): void {

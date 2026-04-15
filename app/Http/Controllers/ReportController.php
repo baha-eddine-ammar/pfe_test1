@@ -32,15 +32,19 @@ class ReportController extends Controller
             : (clone $baseQuery)->where('type', $typeFilter);
 
         $reports = $filteredQuery->paginate(9)->withQueryString();
+        $groupedCounts = Report::query()
+            ->selectRaw('type, COUNT(*) as aggregate')
+            ->groupBy('type')
+            ->pluck('aggregate', 'type');
 
         return view('reports.index', [
             'reports' => $reports,
             'typeFilter' => $typeFilter,
             'reportCounts' => [
-                'all' => Report::query()->count(),
-                'daily' => Report::query()->where('type', 'daily')->count(),
-                'weekly' => Report::query()->where('type', 'weekly')->count(),
-                'monthly' => Report::query()->where('type', 'monthly')->count(),
+                'all' => (int) $groupedCounts->sum(),
+                'daily' => (int) ($groupedCounts['daily'] ?? 0),
+                'weekly' => (int) ($groupedCounts['weekly'] ?? 0),
+                'monthly' => (int) ($groupedCounts['monthly'] ?? 0),
             ],
             'latestReport' => Report::query()->with('latestAiSummary')->latest('generated_at')->first(),
             'defaultReferenceDate' => now()->toDateString(),

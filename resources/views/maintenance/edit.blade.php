@@ -104,7 +104,7 @@
 
                     <div>
                         <label for="assigned_to_user_id" class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                            Assigned IT staff
+                            Assigned user
                         </label>
                         <select id="assigned_to_user_id" name="assigned_to_user_id" class="app-select" required>
                             @foreach ($itStaffUsers as $staffUser)

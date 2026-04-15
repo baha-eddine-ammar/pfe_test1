@@ -1,5 +1,25 @@
 <?php
 
+/*
+|--------------------------------------------------------------------------
+| File Purpose
+|--------------------------------------------------------------------------
+| Central configuration file for third-party integrations.
+|
+| Why this file exists:
+| Services such as Groq and Telegram need credentials and defaults, but those
+| values should come from environment variables instead of being hardcoded.
+|
+| When this file is used:
+| Whenever the application calls config('services.*').
+|
+| FILES TO READ (IN ORDER):
+| 1. .env / .env.example
+| 2. config/services.php
+| 3. app/Services/TelegramService.php
+| 4. app/Services/Reports/GroqReportSummaryService.php
+*/
+
 return [
 
     /*
@@ -35,15 +55,22 @@ return [
         ],
     ],
 
+    // AI report summary integration.
     'groq' => [
         'api_key' => env('GROQ_API_KEY'),
         'base_url' => env('GROQ_BASE_URL', 'https://api.groq.com/openai/v1'),
         'model' => env('GROQ_MODEL', 'llama-3.3-70b-versatile'),
     ],
 
+    'registration' => [
+        'department_head_key' => env('DEPARTMENT_HEAD_REGISTRATION_KEY'),
+    ],
+
+    // Telegram bot configuration used for account linking and notifications.
     'telegram' => [
         'bot_token' => env('TELEGRAM_BOT_TOKEN'),
         'bot_username' => env('TELEGRAM_BOT_USERNAME'),
+        'webhook_secret' => env('TELEGRAM_WEBHOOK_SECRET'),
     ],
 
 ];

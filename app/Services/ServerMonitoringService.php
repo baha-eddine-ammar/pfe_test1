@@ -1,5 +1,26 @@
 <?php
 
+/*
+|--------------------------------------------------------------------------
+| File Purpose
+|--------------------------------------------------------------------------
+| This service converts raw server + latest metric data into dashboard cards.
+|
+| Why this file exists:
+| The dashboard should not know how to interpret CPU/RAM/disk/network values.
+| This service prepares a UI-ready array from Server and ServerMetric models.
+|
+| When this file is used:
+| When DashboardController needs to build the server fleet cards.
+|
+| FILES TO READ (IN ORDER):
+| 1. app/Models/Server.php
+| 2. app/Models/ServerMetric.php
+| 3. app/Services/ServerMonitoringService.php
+| 4. app/Http/Controllers/DashboardController.php
+| 5. resources/views/dashboard/partials/server-card.blade.php
+*/
+
 namespace App\Services;
 
 use App\Models\Server;
@@ -8,6 +29,7 @@ use Carbon\CarbonInterface;
 
 class ServerMonitoringService
 {
+    // Converts a collection/list of Server models into dashboard card arrays.
     public function buildCards(iterable $servers): array
     {
         return collect($servers)
@@ -15,12 +37,22 @@ class ServerMonitoringService
             ->all();
     }
 
+    /*
+    |----------------------------------------------------------------------
+    | Build one server card
+    |----------------------------------------------------------------------
+    | Flow:
+    | Server model -> latestMetric relation -> formatted values -> Blade card
+    */
     public function buildCard(Server $server): array
     {
+        // latestMetric may already be eager loaded by the controller.
         $latestMetric = $server->relationLoaded('latestMetric')
             ? $server->latestMetric
             : $server->latestMetric()->first();
 
+        // last_seen_at can come from the server row itself or fall back to the
+        // timestamp of the latest metric row.
         $lastSeenAt = $server->last_seen_at ?? $latestMetric?->created_at;
         [$status, $statusColor] = $this->resolveStatus($lastSeenAt, $latestMetric);
 
@@ -67,6 +99,8 @@ class ServerMonitoringService
         ];
     }
 
+    // Determines the overall server health status from telemetry freshness and
+    // resource pressure thresholds.
     private function resolveStatus(?CarbonInterface $lastSeenAt, ?ServerMetric $latestMetric): array
     {
         if (! $lastSeenAt || ! $latestMetric) {
@@ -98,6 +132,7 @@ class ServerMonitoringService
         return ['Online', 'emerald'];
     }
 
+    // Percentage helper reused by RAM and disk calculations.
     private function percentage(float|int $used, float|int $total): int
     {
         if ($total <= 0) {
@@ -107,16 +142,19 @@ class ServerMonitoringService
         return $this->clampProgress(($used / $total) * 100);
     }
 
+    // Keeps progress values inside the 0-100 range required by the UI bars.
     private function clampProgress(float|int $value): int
     {
         return (int) round(max(0, min(100, $value)));
     }
 
+    // Network visualization uses average inbound/outbound throughput as a simple score.
     private function networkProgress(ServerMetric $latestMetric): int
     {
         return $this->clampProgress(($latestMetric->net_rx_mbps + $latestMetric->net_tx_mbps) / 2);
     }
 
+    // Formatting helpers used to keep numeric display consistent across cards.
     private function formatPercent(float $value): string
     {
         return $this->formatNumber($value).'%';

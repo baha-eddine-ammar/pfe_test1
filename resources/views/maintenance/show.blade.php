@@ -171,13 +171,14 @@
                             <form method="POST" action="{{ route('maintenance.update-status', $maintenanceTask) }}" class="mt-5 space-y-4">
                                 @csrf
                                 @method('PATCH')
+                                <input type="hidden" name="redirect_to" value="{{ request()->getRequestUri() }}">
 
                                 <div>
                                     <label for="status" class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
                                         Current status
                                     </label>
                                     <select id="status" name="status" class="app-select" required>
-                                        @foreach ($statusOptions as $status)
+                                        @foreach ($maintenanceTask->allowedStatusTransitionsFor(auth()->user()) as $status)
                                             <option value="{{ $status }}" @selected(old('status', $maintenanceTask->status) === $status)>
                                                 {{ str_replace('_', ' ', ucfirst($status)) }}
                                             </option>
@@ -185,6 +186,23 @@
                                     </select>
 
                                     @error('status')
+                                        <p class="mt-2 text-sm text-red-500">{{ $message }}</p>
+                                    @enderror
+                                </div>
+
+                                <div>
+                                    <label for="note" class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                        Optional note
+                                    </label>
+                                    <textarea
+                                        id="note"
+                                        name="note"
+                                        rows="4"
+                                        class="app-input min-h-[120px] resize-y"
+                                        placeholder="Add a progress note, blocker, or completion comment."
+                                    >{{ old('note') }}</textarea>
+
+                                    @error('note')
                                         <p class="mt-2 text-sm text-red-500">{{ $message }}</p>
                                     @enderror
                                 </div>

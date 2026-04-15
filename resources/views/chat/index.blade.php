@@ -1,288 +1,328 @@
-@php
-    $serializedMessages = $messages->map(function ($message) use ($currentUserId) {
-        return [
-            'id' => $message->id,
-            'body' => $message->body,
-            'created_at' => $message->created_at->format('d M Y H:i'),
-            'is_mine' => $message->user_id === $currentUserId,
-            'user' => [
-                'id' => $message->user->id,
-                'name' => $message->user->name,
-            ],
-        ];
-    })->values();
-@endphp
-
+{{--
+|--------------------------------------------------------------------------
+| File Purpose
+|--------------------------------------------------------------------------
+| This is the main Team Chat page.
+| It combines the presence sidebar, message stream, filters, and message composer.
+|
+| Why this file exists:
+| Chat needs one workspace page where users can read messages, find teammates,
+| use mentions, and send new messages without reloading the full page.
+|
+| When this file is used:
+| After ChatController@index builds the initial chat payload.
+|
+| FILES TO READ (IN ORDER):
+| 1. routes/web.php
+| 2. app/Policies/MessagePolicy.php
+| 3. app/Http/Controllers/ChatController.php
+| 4. app/Services/ChatWorkspaceService.php
+| 5. resources/views/chat/index.blade.php
+| 6. resources/views/chat/partials/*
+| 7. resources/views/components/chat/*
+| 8. resources/js/chat-workspace.js
+|
+| HOW TO UNDERSTAND THIS FEATURE:
+| 1. Controller sends messages, directory, mentions, and summary to this page.
+| 2. This page renders the initial workspace.
+| 3. chat-workspace.js handles polling, filters, mentions, and sending.
+| 4. Partial views are replaced during live updates.
+--}}
 <x-app-layout>
+    {{--
+        Root chat workspace.
+        The Alpine component receives all data it needs from ChatController@index.
+    --}}
     <section
-        class="mx-auto max-w-5xl"
-        x-data="chatBox({
-            messagesUrl: '{{ route('chat.messages') }}',
-            storeUrl: '{{ route('chat.store') }}',
-            csrfToken: '{{ csrf_token() }}',
-            currentUserId: {{ $currentUserId }}
+        x-data="chatWorkspace({
+            messagesUrl: @js(route('chat.messages')),
+            storeUrl: @js(route('chat.store')),
+            csrfToken: @js(csrf_token()),
+            mentionableUsers: @js($mentionableUsers),
+            summary: @js($summary),
+            initialFilters: @js($filters),
+            highlightMessageId: @js($highlightMessageId),
         })"
         x-init="init()"
+        data-chat-workspace
+        class="chat-shell relative isolate mx-auto max-w-[1700px] space-y-6 pb-10"
     >
-        <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-                <p class="app-section-title">Communication</p>
-                <h1 class="mt-2 font-display text-3xl font-semibold tracking-tight text-gray-900 dark:text-white">
-                    Team Chat
-                </h1>
-                <p class="mt-2 max-w-2xl text-sm text-gray-500 dark:text-gray-400">
-                    Shared team room for quick communication. New messages appear automatically every 3 seconds.
-                </p>
-            </div>
+        <div class="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[36rem] bg-[radial-gradient(circle_at_top_left,_rgba(70,95,255,0.18),_transparent_28%),radial-gradient(circle_at_top_right,_rgba(16,185,129,0.14),_transparent_22%),linear-gradient(180deg,_rgba(255,255,255,0.96),_rgba(248,250,252,0))] blur-2xl dark:bg-[radial-gradient(circle_at_top_left,_rgba(70,95,255,0.24),_transparent_28%),radial-gradient(circle_at_top_right,_rgba(16,185,129,0.08),_transparent_20%),linear-gradient(180deg,_rgba(15,23,42,0.72),_rgba(2,6,23,0))]"></div>
 
-            <div class="flex flex-wrap items-center gap-2">
-                <span class="app-pill bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-300">
-                    Live room
-                </span>
-                <span class="app-pill bg-gray-100 text-gray-600 dark:bg-white/[0.05] dark:text-gray-300">
-                    <span x-text="messages.length"></span> messages
-                </span>
-            </div>
-        </div>
-
-        <div class="app-card overflow-hidden p-6">
-            <template x-if="successMessage">
-                <div class="app-status-success mb-4" x-text="successMessage"></div>
-            </template>
-
-            <template x-if="sendError">
-                <div class="app-status-danger mb-4" x-text="sendError"></div>
-            </template>
-
-            <div
-                x-ref="messagesContainer"
-                class="mb-6 h-[430px] overflow-y-auto rounded-3xl bg-gray-50 p-4 dark:bg-white/[0.03]"
-            >
-                <template x-if="messages.length === 0">
-                    <div class="flex h-full flex-col items-center justify-center rounded-2xl border border-dashed border-gray-300 px-6 text-center dark:border-gray-700">
-                        <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-50 text-brand-500 dark:bg-brand-500/10 dark:text-brand-300">
-                            <svg class="h-7 w-7" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7">
-                                <path d="M5.5 13.5L3 16v-2.8A5.5 5.5 0 018.5 7.7h3A5.5 5.5 0 0117 13.2v.3" stroke-linejoin="round"></path>
-                            </svg>
-                        </div>
-                        <h2 class="mt-4 font-display text-xl font-semibold text-gray-900 dark:text-white">
-                            No messages yet
-                        </h2>
-                        <p class="mt-2 max-w-md text-sm leading-6 text-gray-500 dark:text-gray-400">
-                            This chat room is empty for now. Send the first message to start the conversation.
+        {{--
+            Top summary area:
+            Left card explains the feature.
+            Right card shows room statistics coming from ChatWorkspaceService::summary().
+        --}}
+        <section class="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_360px]">
+            <article class="chat-panel px-6 py-6 sm:px-7">
+                <div class="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+                    <div class="max-w-3xl">
+                        <p class="app-section-title">Communication</p>
+                        <h1 class="mt-2 font-display text-3xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white sm:text-4xl">
+                            Team chat workspace
+                        </h1>
+                        <p class="mt-3 text-sm leading-7 text-slate-500 dark:text-slate-400">
+                            A shared, production-ready conversation hub with live presence, searchable history, mention notifications, and optimized partial updates instead of page reloads.
                         </p>
                     </div>
-                </template>
 
-                <div class="space-y-4">
-                    <template x-for="message in messages" :key="message.id">
-                        <div
-                            class="flex"
-                            :class="message.is_mine ? 'justify-end' : 'justify-start'"
-                        >
-                            <div class="flex max-w-[78%] items-end gap-3" :class="message.is_mine ? 'flex-row-reverse' : ''">
-                                <div
-                                    class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl text-sm font-semibold"
-                                    :class="message.is_mine
-                                        ? 'bg-brand-100 text-brand-700 dark:bg-brand-500/10 dark:text-brand-300'
-                                        : 'bg-gray-200 text-gray-700 dark:bg-gray-800 dark:text-gray-300'"
-                                    x-text="message.user.name.charAt(0).toUpperCase()"
-                                ></div>
-
-                                <div
-                                    class="rounded-3xl px-4 py-3 shadow-sm"
-                                    :class="message.is_mine
-                                        ? 'bg-brand-500 text-white'
-                                        : 'border border-gray-200 bg-white text-gray-800 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-200'"
-                                >
-                                    <div class="flex items-center gap-3">
-                                        <p
-                                            class="text-sm font-semibold"
-                                            :class="message.is_mine ? 'text-white/90' : 'text-gray-900 dark:text-white'"
-                                            x-text="message.user.name"
-                                        ></p>
-
-                                        <p
-                                            class="text-xs"
-                                            :class="message.is_mine ? 'text-white/70' : 'text-gray-400 dark:text-gray-500'"
-                                            x-text="message.created_at"
-                                        ></p>
-                                    </div>
-
-                                    <p
-                                        class="mt-2 text-sm leading-6"
-                                        :class="message.is_mine ? 'text-white' : 'text-gray-600 dark:text-gray-300'"
-                                        x-text="message.body"
-                                    ></p>
-                                </div>
-                            </div>
+                    <div class="grid gap-3 sm:grid-cols-2 xl:w-[320px]">
+                        <div class="chat-mini-card">
+                            <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400 dark:text-slate-500">Live sync</p>
+                            <p class="mt-2 text-sm font-semibold text-slate-950 dark:text-white">
+                                Every 5 seconds
+                            </p>
                         </div>
-                    </template>
+
+                        <div class="chat-mini-card">
+                            <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400 dark:text-slate-500">Last sync</p>
+                            <p class="mt-2 text-sm font-semibold text-slate-950 dark:text-white" x-text="summary.synced_at"></p>
+                        </div>
+                    </div>
                 </div>
-            </div>
+            </article>
 
-            <div class="rounded-3xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
-                <form
-                    method="POST"
-                    action="{{ route('chat.store') }}"
-                    class="space-y-4"
-                    @submit.prevent="sendMessage"
-                >
-                    @csrf
-
+            <article class="chat-panel px-6 py-6 sm:px-7">
+                <div class="flex items-center justify-between gap-4">
                     <div>
-                        <div class="mb-2 flex items-center justify-between gap-4">
-                            <label for="body" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                Your message
-                            </label>
-                            <span class="text-xs text-gray-400 dark:text-gray-500">
+                        <p class="app-section-title">Channel</p>
+                        <h2 class="mt-2 font-display text-2xl font-semibold text-slate-950 dark:text-white">Ops room</h2>
+                    </div>
+
+                    <span class="dashboard-live-badge">
+                        <span class="dashboard-live-dot"></span>
+                        Team online
+                    </span>
+                </div>
+
+                <div class="mt-5 grid gap-3 sm:grid-cols-3">
+                    <div class="chat-mini-stat">
+                        <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400 dark:text-slate-500">Visible messages</p>
+                        <p class="mt-2 font-display text-3xl font-semibold text-slate-950 dark:text-white" x-text="summary.message_count"></p>
+                    </div>
+                    <div class="chat-mini-stat">
+                        <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400 dark:text-slate-500">Online now</p>
+                        <p class="mt-2 font-display text-3xl font-semibold text-slate-950 dark:text-white" x-text="summary.online_count"></p>
+                    </div>
+                    <div class="chat-mini-stat">
+                        <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400 dark:text-slate-500">My mentions</p>
+                        <p class="mt-2 font-display text-3xl font-semibold text-slate-950 dark:text-white" x-text="summary.mention_count"></p>
+                    </div>
+                </div>
+            </article>
+        </section>
+
+        @if (session('success'))
+            <div class="app-status-success">
+                {{ session('success') }}
+            </div>
+        @endif
+
+        <template x-if="successMessage">
+            <div class="app-status-success" x-text="successMessage"></div>
+        </template>
+
+        <template x-if="sendError">
+            <div class="app-status-danger" x-text="sendError"></div>
+        </template>
+
+        {{--
+            Main chat layout:
+            Left = team directory / presence
+            Right = filters, message stream, and composer
+        --}}
+        <section class="grid gap-6 2xl:grid-cols-[340px_minmax(0,1fr)]">
+            <aside class="chat-panel flex min-h-[78vh] flex-col px-5 py-5 sm:px-6">
+                {{--
+                    Team directory:
+                    Rendered from $userDirectory, which already includes presence labels and role labels.
+                    The partial is refreshed during polling.
+                --}}
+                <div class="flex items-center justify-between gap-3 border-b border-slate-200/70 pb-5 dark:border-white/10">
+                    <div>
+                        <p class="app-section-title">Presence</p>
+                        <h2 class="mt-2 font-display text-2xl font-semibold text-slate-950 dark:text-white">Team directory</h2>
+                    </div>
+
+                    <div class="chat-presence-summary">
+                        <span class="chat-presence-dot bg-emerald-400 shadow-[0_0_18px_rgba(52,211,153,0.55)]"></span>
+                        <span x-text="summary.online_count"></span>
+                    </div>
+                </div>
+
+                <div class="mt-5 rounded-[24px] border border-slate-200/80 bg-slate-50/80 px-4 py-4 dark:border-white/10 dark:bg-white/[0.03]">
+                    <p class="text-sm font-medium text-slate-700 dark:text-slate-300">
+                        Click any user to filter the room by sender. Presence is derived from active authenticated sessions, so it stays lightweight and deployment-safe.
+                    </p>
+                </div>
+
+                <div x-ref="userDirectory" @click="handleDirectoryClick($event)" class="mt-5 flex-1 overflow-y-auto pr-1 custom-scrollbar">
+                    @include('chat.partials.user-list', [
+                        'users' => $userDirectory,
+                        'currentUserId' => $currentUserId,
+                        'selectedUserId' => $filters['sender_id'],
+                    ])
+                </div>
+            </aside>
+
+            <article class="chat-panel flex min-h-[78vh] flex-col overflow-hidden">
+                {{--
+                    Filter bar:
+                    Lets the user search messages, isolate one sender, or show only mentions.
+                    These filters are read by ChatController and ChatWorkspaceService.
+                --}}
+                <div class="border-b border-slate-200/70 px-6 py-5 dark:border-white/10 sm:px-7">
+                    <div class="flex flex-col gap-4 2xl:flex-row 2xl:items-end 2xl:justify-between">
+                        <div>
+                            <p class="app-section-title">Filters</p>
+                            <h2 class="mt-2 font-display text-2xl font-semibold text-slate-950 dark:text-white">Conversation stream</h2>
+                            <p class="mt-3 text-sm leading-7 text-slate-500 dark:text-slate-400">
+                                Search messages, isolate a sender, or jump into messages that mention you directly.
+                            </p>
+                        </div>
+
+                        <div class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto_auto] 2xl:w-[760px]">
+                            <div class="relative">
+                                <input
+                                    type="text"
+                                    x-model="searchTerm"
+                                    class="app-search"
+                                    placeholder="Search messages, names, or email"
+                                >
+                                <svg class="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-500" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7">
+                                    <circle cx="9" cy="9" r="5.5"></circle>
+                                    <path d="M13.5 13.5L17 17" stroke-linecap="round"></path>
+                                </svg>
+                            </div>
+
+                            <button
+                                type="button"
+                                @click="toggleMentionsOnly()"
+                                class="chat-filter-chip"
+                                :class="mentionsOnly ? 'chat-filter-chip--active' : ''"
+                            >
+                                Mentions
+                            </button>
+
+                            <button
+                                type="button"
+                                @click="clearFilters()"
+                                class="app-button-secondary px-4 py-3"
+                            >
+                                Reset
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 flex flex-wrap items-center gap-2">
+                        <template x-if="senderFilter">
+                            <span class="chat-filter-chip chat-filter-chip--active">
+                                Sender: <span class="font-semibold" x-text="selectedSenderName()"></span>
+                            </span>
+                        </template>
+
+                        <template x-if="mentionsOnly">
+                            <span class="chat-filter-chip chat-filter-chip--active">
+                                Showing messages that mention you
+                            </span>
+                        </template>
+                    </div>
+                </div>
+
+                {{--
+                    Message stream:
+                    Initial HTML comes from the controller.
+                    Later refreshes replace or append HTML from chat.partials.message-list.
+                --}}
+                <div x-ref="messagesScroller" class="chat-message-scroller flex-1 overflow-y-auto px-6 py-6 sm:px-7 custom-scrollbar">
+                    <div x-ref="messageStream" class="space-y-4">
+                        @include('chat.partials.message-list', ['messages' => $messages])
+                    </div>
+                </div>
+
+                {{--
+                    Composer:
+                    Sends new messages through AJAX using chat-workspace.js.
+                    Mention suggestions come from $mentionableUsers.
+                --}}
+                <div class="chat-composer-wrap border-t border-slate-200/70 px-6 py-5 dark:border-white/10 sm:px-7">
+                    <form method="POST" action="{{ route('chat.store') }}" class="space-y-4" @submit.prevent="sendMessage()">
+                        @csrf
+
+                        <div class="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                                <p class="app-section-title">Compose</p>
+                                <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                                    Use <span class="font-semibold text-slate-700 dark:text-slate-300">@handle</span> mentions to notify teammates. Press Enter to send and Shift+Enter for a new line.
+                                </p>
+                            </div>
+
+                            <span class="chat-meta-chip">
                                 <span x-text="draft.length"></span>/1000
                             </span>
                         </div>
 
-                        <textarea
-                            id="body"
-                            name="body"
-                            rows="4"
-                            class="app-input min-h-[120px] resize-none"
-                            placeholder="Type your message here..."
-                            x-model="draft"
-                            :disabled="sending"
-                            maxlength="1000"
-                            required
-                        ></textarea>
+                        <div class="relative">
+                            <textarea
+                                x-ref="composer"
+                                x-model="draft"
+                                @input="onComposerInput()"
+                                @keydown="onComposerKeydown($event)"
+                                rows="4"
+                                class="chat-composer-input"
+                                placeholder="Write an update, ask for help, or mention a teammate..."
+                                maxlength="1000"
+                                :disabled="sending"
+                            ></textarea>
 
-                        <p class="mt-2 text-xs text-gray-400 dark:text-gray-500">
-                            Messages are shared with all logged-in users in this room.
-                        </p>
-                    </div>
+                            <div
+                                x-cloak
+                                x-show="mentionMenuOpen && currentMentionMatches().length > 0"
+                                x-transition.origin.bottom.left
+                                class="chat-mention-menu"
+                                style="display: none;"
+                            >
+                                <p class="px-4 pb-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400 dark:text-slate-500">
+                                    Mention a teammate
+                                </p>
 
-                    <div class="flex items-center justify-between gap-4">
-                        <p class="text-xs text-gray-400 dark:text-gray-500">
-                            Auto-refresh checks for new messages every 3 seconds.
-                        </p>
+                                <div class="space-y-1">
+                                    <template x-for="(user, index) in currentMentionMatches()" :key="user.id">
+                                        <button
+                                            type="button"
+                                            class="chat-mention-option"
+                                            :class="index === mentionIndex ? 'chat-mention-option--active' : ''"
+                                            @mousedown.prevent="insertMention(user)"
+                                        >
+                                            <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-500 to-sky-400 text-sm font-semibold text-white">
+                                                <span x-text="user.initials"></span>
+                                            </div>
 
-                        <button
-                            type="submit"
-                            class="app-button-primary min-w-[150px]"
-                            :disabled="sending"
-                        >
-                            <span x-show="!sending">Send Message</span>
-                            <span x-show="sending" x-cloak>Sending...</span>
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
+                                            <div class="min-w-0 flex-1 text-left">
+                                                <p class="truncate text-sm font-semibold text-slate-950 dark:text-white" x-text="user.name"></p>
+                                                <p class="mt-1 truncate text-xs text-slate-500 dark:text-slate-400" x-text="`@${user.handle} - ${user.role_label}`"></p>
+                                            </div>
+                                        </button>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex flex-wrap items-center justify-between gap-3">
+                            <div class="flex flex-wrap items-center gap-2 text-xs text-slate-400 dark:text-slate-500">
+                                <span class="chat-meta-chip">Escapes XSS by server rendering</span>
+                                <span class="chat-meta-chip">Throttled against spam</span>
+                            </div>
+
+                            <button type="submit" class="app-button-primary min-w-[170px]" :disabled="sending">
+                                <span x-show="!sending">Send message</span>
+                                <span x-show="sending" x-cloak>Sending...</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </article>
+        </section>
     </section>
-
-    <script>
-        document.addEventListener('alpine:init', () => {
-            Alpine.data('chatBox', ({ messagesUrl, storeUrl, csrfToken, currentUserId }) => ({
-                messages: @js($serializedMessages),
-                messagesUrl,
-                storeUrl,
-                csrfToken,
-                currentUserId,
-                draft: '',
-                sending: false,
-                sendError: '',
-                successMessage: '',
-                intervalId: null,
-                successTimeout: null,
-
-                scrollToBottom() {
-                    this.$nextTick(() => {
-                        if (this.$refs.messagesContainer) {
-                            this.$refs.messagesContainer.scrollTop = this.$refs.messagesContainer.scrollHeight;
-                        }
-                    });
-                },
-
-                showSuccess(message) {
-                    this.successMessage = message;
-
-                    if (this.successTimeout) {
-                        clearTimeout(this.successTimeout);
-                    }
-
-                    this.successTimeout = setTimeout(() => {
-                        this.successMessage = '';
-                    }, 2500);
-                },
-
-                async fetchMessages() {
-                    const response = await fetch(this.messagesUrl, {
-                        headers: {
-                            'Accept': 'application/json',
-                            'X-Requested-With': 'XMLHttpRequest',
-                        },
-                    });
-
-                    if (!response.ok) {
-                        return;
-                    }
-
-                    const data = await response.json();
-                    this.messages = data.messages;
-                    this.scrollToBottom();
-                },
-
-                async sendMessage() {
-                    const body = this.draft.trim();
-
-                    if (!body) {
-                        this.sendError = 'Please write a message before sending.';
-                        return;
-                    }
-
-                    this.sending = true;
-                    this.sendError = '';
-
-                    try {
-                        const response = await fetch(this.storeUrl, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Accept': 'application/json',
-                                'X-Requested-With': 'XMLHttpRequest',
-                                'X-CSRF-TOKEN': this.csrfToken,
-                            },
-                            body: JSON.stringify({ body }),
-                        });
-
-                        if (response.status === 422) {
-                            const data = await response.json();
-                            this.sendError = data.errors?.body?.[0] ?? 'Validation failed.';
-                            return;
-                        }
-
-                        if (!response.ok) {
-                            this.sendError = 'Unable to send the message right now.';
-                            return;
-                        }
-
-                        const data = await response.json();
-
-                        this.messages.push(data.message_data);
-                        this.draft = '';
-                        this.showSuccess(data.message);
-                        this.scrollToBottom();
-                    } catch (error) {
-                        this.sendError = 'A network error happened while sending the message.';
-                    } finally {
-                        this.sending = false;
-                    }
-                },
-
-                init() {
-                    this.scrollToBottom();
-
-                    this.intervalId = setInterval(() => {
-                        this.fetchMessages();
-                    }, 3000);
-                },
-            }));
-        });
-    </script>
 </x-app-layout>

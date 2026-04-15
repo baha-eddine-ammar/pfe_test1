@@ -1,7 +1,26 @@
+{{--
+|--------------------------------------------------------------------------
+| File Purpose
+|--------------------------------------------------------------------------
+| Shared top navigation bar for authenticated pages.
+|
+| What it shows:
+| - current page title
+| - theme toggle
+| - notification dropdown
+| - user/profile dropdown
+|
+| Data source:
+| Most values come from the authenticated user plus route name and
+| userNotifications relationship queries inside this file.
+|--------------------------------------------------------------------------
+--}}
 @php
+    // Current user drives role labels, initials, and notification queries.
     $user = auth()->user();
     $routeName = request()->route()?->getName() ?? 'dashboard';
 
+    // Route name -> human-friendly page title map.
     $pageMap = [
         'dashboard' => ['eyebrow' => 'Workspace', 'title' => 'Dashboard'],
         'reports.index' => ['eyebrow' => 'Intelligence', 'title' => 'Reports'],
@@ -28,8 +47,10 @@
 
     $pageData = $pageMap[$routeName] ?? ['eyebrow' => 'Workspace', 'title' => 'Overview'];
     $roleLabel = $user->isDepartmentHead() ? 'Department Head' : 'Staff';
+    // Latest notification list used by the dropdown panel.
     $latestNotifications = $user->userNotifications()->latest('created_at')->limit(6)->get();
     $unreadNotificationsCount = $user->userNotifications()->whereNull('read_at')->count();
+    // Initials are shown inside the profile avatar circle.
     $initials = collect(explode(' ', $user->name))
         ->filter()
         ->map(fn (string $part) => \Illuminate\Support\Str::upper(\Illuminate\Support\Str::substr($part, 0, 1)))
@@ -40,6 +61,10 @@
 <header class="sticky top-0 z-30 px-4 pt-4 sm:px-6 lg:px-8">
     <div class="app-topbar rounded-2xl px-4 py-3 sm:px-5 lg:px-6">
         <div class="flex flex-wrap items-center justify-between gap-4">
+            {{--
+                Left side:
+                sidebar toggle buttons + dynamic page title
+            --}}
             <div class="flex items-center gap-3 min-w-0">
                 <button type="button" class="app-icon-button lg:hidden" @click="$store.sidebar.toggle()" aria-label="Open sidebar">
                     <svg class="h-5 w-5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7">
@@ -59,6 +84,10 @@
                 </div>
             </div>
 
+            {{--
+                Right side:
+                theme toggle, notifications dropdown, and profile menu
+            --}}
             <div class="ml-auto flex items-center gap-2 sm:gap-3">
                 <button type="button" class="app-icon-button" @click="$store.theme.toggle()" aria-label="Toggle theme">
                     <svg x-cloak x-show="$store.theme.theme !== 'dark'" class="h-5 w-5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7">
@@ -71,6 +100,11 @@
                 </button>
 
                 <div class="relative" @click.outside="notificationOpen = false">
+                    {{--
+                        Notification dropdown:
+                        Reads recent rows from user_notifications and links the
+                        user to the correct destination when clicked.
+                    --}}
                     <button type="button" class="app-icon-button relative" aria-label="Notifications" @click="notificationOpen = !notificationOpen; profileOpen = false">
                         @if ($unreadNotificationsCount > 0)
                             <span class="absolute right-2 top-2 inline-flex min-w-[1.15rem] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white">
@@ -113,6 +147,7 @@
                                 @php
                                     $toneClass = match ($notification->type) {
                                         'maintenance.assigned' => 'bg-amber-400',
+                                        'chat.mentioned' => 'bg-violet-500',
                                         'report.generated' => 'bg-sky-400',
                                         'alert.critical' => 'bg-rose-500',
                                         'user.approved' => 'bg-emerald-400',
@@ -138,6 +173,26 @@
                                                 @if ($notification->body)
                                                     <p class="mt-1 line-clamp-2 text-sm leading-6 text-gray-500 dark:text-gray-400">{{ $notification->body }}</p>
                                                 @endif
+                                                @if ($notification->type === 'maintenance.assigned' && is_array($notification->data))
+                                                    <div class="mt-2 flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500">
+                                                        @if (! empty($notification->data['task_id']))
+                                                            <span>Task #{{ $notification->data['task_id'] }}</span>
+                                                        @endif
+                                                        @if (! empty($notification->data['sender_name']))
+                                                            <span>By {{ $notification->data['sender_name'] }}</span>
+                                                        @endif
+                                                    </div>
+                                                @endif
+                                                @if ($notification->type === 'chat.mentioned' && is_array($notification->data))
+                                                    <div class="mt-2 flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-gray-400 dark:text-gray-500">
+                                                        @if (! empty($notification->data['sender_name']))
+                                                            <span>By {{ $notification->data['sender_name'] }}</span>
+                                                        @endif
+                                                        @if (! empty($notification->data['sender_handle']))
+                                                            <span>{{ '@'.$notification->data['sender_handle'] }}</span>
+                                                        @endif
+                                                    </div>
+                                                @endif
                                             </div>
                                         </div>
                                     </button>
@@ -157,6 +212,10 @@
                 </div>
 
                 <div class="relative" @click.outside="profileOpen = false">
+                    {{--
+                        Profile dropdown:
+                        Shows user identity, access state, profile link, and logout.
+                    --}}
                     <button
                         type="button"
                         class="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white px-2 py-2 pl-3 text-left transition hover:bg-gray-50 dark:border-gray-800 dark:bg-gray-900 dark:hover:bg-white/[0.03]"

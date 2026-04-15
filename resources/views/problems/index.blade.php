@@ -64,6 +64,11 @@
                         </div>
                     </article>
                 </a>
+
+
+                //If no problems exist → show message
+
+                {{-- //If no problems exist → show message--}}
             @empty
                 <div class="app-card px-6 py-10 text-center">
                     <h2 class="font-display text-2xl font-semibold text-gray-900 dark:text-white">

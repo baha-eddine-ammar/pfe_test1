@@ -50,29 +50,25 @@ class LoginRequest extends FormRequest
             ->where('email', $email)
             ->first();
 
-        if (
-            $user
-            && Hash::check($password, $user->password)
-            && ! $user->hasApprovedStatus()
-        ) {
-            RateLimiter::hit($this->throttleKey());
-
-            throw ValidationException::withMessages([
-                'email' => 'Your account is pending approval.',
-            ]);
-        }
-
-        if (! Auth::attempt([
-            'email' => $email,
-            'password' => $password,
-            'status' => 'approved',
-        ], $this->boolean('remember'))) {
+        if (! $user || ! Hash::check($password, $user->password)) {
             RateLimiter::hit($this->throttleKey());
 
             throw ValidationException::withMessages([
                 'email' => trans('auth.failed'),
             ]);
         }
+
+        if (! $user->hasApprovedStatus()) {
+            RateLimiter::hit($this->throttleKey());
+
+            throw ValidationException::withMessages([
+                'email' => $user->statusLabel() === 'pending'
+                    ? 'Your account is pending approval.'
+                    : 'Your account does not currently have access.',
+            ]);
+        }
+
+        Auth::login($user, $this->boolean('remember'));
 
         RateLimiter::clear($this->throttleKey());
     }

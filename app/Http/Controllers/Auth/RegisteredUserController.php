@@ -1,10 +1,38 @@
 <?php
 
+/*
+|--------------------------------------------------------------------------
+| File Purpose
+|--------------------------------------------------------------------------
+| This controller handles user registration for the project.
+|
+| Why this file exists:
+| The application has custom registration rules beyond default Laravel auth:
+| department selection, phone number, role assignment, and department head key logic.
+|
+| When this file is used:
+| - GET /register
+| - POST /register
+|
+| FILES TO READ (IN ORDER):
+| 1. routes/auth.php
+| 2. app/Http/Controllers/Auth/RegisteredUserController.php
+| 3. app/Models/User.php
+| 4. resources/views/auth/register.blade.php
+| 5. app/Http/Middleware/EnsureDepartmentHead.php
+|
+| HOW TO UNDERSTAND THIS FEATURE:
+| 1. The user submits the register form.
+| 2. This controller validates the input.
+| 3. It decides whether the account is staff or department_head.
+| 4. It creates the user row.
+| 5. Approved users are logged in immediately.
+*/
+
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
-use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -15,21 +43,21 @@ use Illuminate\View\View;
 
 class RegisteredUserController extends Controller
 {
-    private const DEPARTMENT_HEAD_KEY = '123456789';
-
-    /**
-     * Display the registration view.
-     */
+    // Displays the registration page.
     public function create(): View
     {
         return view('auth.register');
     }
 
-    /**
-     * Handle an incoming registration request.
-     *
-     * @throws \Illuminate\Validation\ValidationException
-     */
+    /*
+    |----------------------------------------------------------------------
+    | Handle registration
+    |----------------------------------------------------------------------
+    | Important variables:
+    | - $departmentHeadKey: optional secret key entered in the form.
+    | - $isDepartmentHead: determines role and approval status.
+    | - $role / $status: values saved into the users table.
+    */
     public function store(Request $request): RedirectResponse
     {
         $request->validate([
@@ -55,9 +83,14 @@ class RegisteredUserController extends Controller
             'email.ends_with' => 'Only @draxmailer email addresses are allowed.',
         ]);
 
+        // Role decision logic:
+        // if the configured special key matches, the user becomes an approved department head.
+        // otherwise, the user becomes pending staff.
         $departmentHeadKey = trim((string) $request->input('department_head_key', ''));
+        $configuredDepartmentHeadKey = trim((string) config('services.registration.department_head_key', ''));
         $isDepartmentHead = $departmentHeadKey !== ''
-            && hash_equals(self::DEPARTMENT_HEAD_KEY, $departmentHeadKey);
+            && $configuredDepartmentHeadKey !== ''
+            && hash_equals($configuredDepartmentHeadKey, $departmentHeadKey);
 
         $role = $isDepartmentHead ? 'department_head' : 'staff';
         $status = $isDepartmentHead ? 'approved' : 'pending';
@@ -73,8 +106,12 @@ class RegisteredUserController extends Controller
             'password' => Hash::make($request->password),
         ]);
 
-        event(new Registered($user));
+        $user->forceFill([
+            'email_verified_at' => now(),
+        ])->save();
 
+        // Approved users can enter the system immediately.
+        // Pending staff users are redirected to login with a waiting message.
         if ($user->hasApprovedStatus()) {
             Auth::login($user);
 

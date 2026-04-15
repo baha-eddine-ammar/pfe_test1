@@ -23,6 +23,7 @@ class ProfileUpdateRequest extends FormRequest
                 'lowercase',
                 'email',
                 'max:255',
+                'ends_with:@draxmailer',
                 Rule::unique(User::class)->ignore($this->user()->id),
             ],
         ];

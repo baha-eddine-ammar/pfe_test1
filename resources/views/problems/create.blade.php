@@ -1,4 +1,15 @@
+
+{{--This is the "Submit Problem" form , load when we click on submit problem and called by create fonction in problems controller    --}}
+
+
+
+    {{--Use main layout (header + sidebar + styles) --}}
 <x-app-layout>
+
+    {{-- --}}
+
+
+
     <section class="mx-auto max-w-4xl">
         <div class="mb-6">
             <p class="app-section-title">Knowledge</p>
@@ -11,6 +22,7 @@
         </div>
 
         <div class="app-card px-6 py-6 sm:px-7">
+            //If controller sends success message → show it
             @if (session('success'))
                 <div class="app-status-success mb-5">
                     {{ session('success') }}

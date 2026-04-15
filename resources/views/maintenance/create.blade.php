@@ -10,7 +10,7 @@
                 Create Maintenance Task
             </h1>
             <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                Schedule a maintenance task and assign it to an approved IT staff member.
+                Schedule a maintenance task and assign it to any existing user in the system.
             </p>
         </div>
 
@@ -107,10 +107,10 @@
 
                     <div>
                         <label for="assigned_to_user_id" class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                            Assigned IT staff
+                            Assigned user
                         </label>
                         <select id="assigned_to_user_id" name="assigned_to_user_id" class="app-select" required>
-                            <option value="">Select IT staff</option>
+                            <option value="">Select user</option>
                             @foreach ($itStaffUsers as $staffUser)
                                 <option value="{{ $staffUser->id }}" @selected(old('assigned_to_user_id') == $staffUser->id)>
                                     {{ $staffUser->name }}

@@ -16,7 +16,8 @@ class SolutionController extends Controller
         $solutions = Solution::with(['user', 'problem'])
             ->withCount('attachments')
             ->latest()
-            ->get();
+            ->paginate(12)
+            ->withQueryString();
 
         return view('solutions.index', [
             'solutions' => $solutions,
@@ -25,21 +26,25 @@ class SolutionController extends Controller
 
     public function store(Request $request, Problem $problem): RedirectResponse
     {
+        $request->merge([
+            'body' => trim((string) $request->input('body', '')),
+        ]);
+
         $validated = $request->validate([
             'body' => ['required', 'string', 'max:10000'],
-            'attachments' => ['nullable', 'array'],
+            'attachments' => ['nullable', 'array', 'max:5'],
             'attachments.*' => ['file', 'mimes:pdf,doc,docx,txt,png,jpg,jpeg,zip', 'max:10240'],
         ]);
 
         DB::transaction(function () use ($request, $problem, $validated) {
             $solution = $problem->solutions()->create([
                 'user_id' => $request->user()->id,
-                'body' => trim($validated['body']),
+                'body' => $validated['body'],
             ]);
 
             if ($request->hasFile('attachments')) {
                 foreach ($request->file('attachments') as $file) {
-                    $storedPath = $file->store('solution-attachments', 'public');
+                    $storedPath = $file->store('solution-attachments', 'local');
 
                     $solution->attachments()->create([
                         'original_name' => $file->getClientOriginalName(),
