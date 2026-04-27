@@ -27,7 +27,31 @@
     'target' => null,
     'sparkline' => [],
     'trend' => ['percent' => 0, 'direction' => 'flat'],
+    'empty' => false,
 ])
+
+@php
+    $reactMetricProps = [
+        'title' => $title,
+        'subtitle' => $subtitle,
+        'value' => $value,
+        'status' => $status,
+        'ringDegrees' => $ringDegrees,
+        'unit' => $unit,
+        'feedUrl' => $feedUrl,
+        'stableColor' => $stableColor,
+        'icon' => $icon,
+        'target' => $target,
+        'sparkline' => $sparkline,
+        'trend' => $trend,
+        'empty' => (bool) $empty,
+    ];
+@endphp
+
+<div
+    data-react-live-metric-card
+    data-props='{{ json_encode($reactMetricProps, JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_TAG | JSON_HEX_QUOT) }}'
+></div>
 
 <article
     {{--
@@ -45,7 +69,9 @@
         sparkline: @js($sparkline),
         initialTrendPercent: {{ json_encode($trend['percent'] ?? 0) }},
         initialTrendDirection: {{ json_encode($trend['direction'] ?? 'flat') }},
+        empty: {{ json_encode((bool) $empty) }},
     })"
+    data-react-fallback
     class="dashboard-panel dashboard-panel-hover group relative overflow-hidden px-6 py-6 sm:px-7"
     :class="{ 'scale-[1.01] shadow-[0_28px_90px_rgba(70,95,255,0.12)]': refreshPulse }"
 >
@@ -84,7 +110,7 @@
 
             <div class="flex items-center gap-2">
                 <span class="dashboard-live-badge" :class="statusClasses()">
-                    <span class="dashboard-live-dot"></span>
+                    <span class="dashboard-live-dot" x-show="!empty"></span>
                     <span x-text="status"></span>
                 </span>
             </div>
@@ -103,7 +129,7 @@
                         <p class="font-display text-5xl font-semibold leading-none text-slate-950 dark:text-white">
                             <span class="tabular-nums" x-text="displayValue()"></span>
                         </p>
-                        <span class="pb-1 text-lg font-medium text-slate-400 dark:text-slate-500">{{ $unit }}</span>
+                        <span x-show="!empty" class="pb-1 text-lg font-medium text-slate-400 dark:text-slate-500">{{ $unit }}</span>
                     </div>
                 </div>
 
@@ -133,8 +159,9 @@
                 </div>
 
                 <div class="min-w-[7rem] text-right">
-                    <p class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400 dark:text-slate-500">Live trace</p>
-                    <div x-ref="sparkline" class="mt-2 h-[88px]"></div>
+                    <p class="text-xs font-semibold uppercase tracking-[0.22em] text-slate-400 dark:text-slate-500" x-text="empty ? 'Awaiting sensor' : 'Live trace'"></p>
+                    <div x-show="!empty" x-ref="sparkline" class="mt-2 h-[88px]"></div>
+                    <div x-show="empty" class="mt-2 flex h-[88px] items-center justify-end text-sm font-semibold text-slate-300 dark:text-slate-600">--</div>
                 </div>
             </div>
         </div>
@@ -152,7 +179,7 @@
                 <div class="h-full rounded-full transition-all duration-500" :style="progressStyle()"></div>
             </div>
             <div class="mt-3 flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400 dark:text-slate-500">
-                <span>Auto-refreshing feed</span>
+                <span x-text="empty ? 'Awaiting real sensor feed' : 'Auto-refreshing feed'"></span>
                 <span x-text="status"></span>
             </div>
         </div>

@@ -71,6 +71,8 @@
 
         <title>{{ config('app.name', 'Server Room Supervision') }}</title>
 
+        @include('layouts.partials.brand-preloader-head')
+
         <script>
             (function () {
                 localStorage.removeItem('server-room-theme');
@@ -92,6 +94,8 @@
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
     <body class="min-h-screen bg-gray-50 text-gray-800 antialiased dark:bg-gray-900 dark:text-gray-100">
+        @include('layouts.partials.brand-preloader')
+
         <div class="app-shell relative overflow-hidden">
             <div class="pointer-events-none absolute inset-x-0 top-0 h-[560px] bg-[radial-gradient(circle_at_top_left,rgba(70,95,255,0.22),transparent_32%),radial-gradient(circle_at_85%_15%,rgba(14,165,233,0.16),transparent_24%)] dark:bg-[radial-gradient(circle_at_top_left,rgba(70,95,255,0.24),transparent_28%),radial-gradient(circle_at_85%_15%,rgba(14,165,233,0.12),transparent_22%)]"></div>
             <div class="pointer-events-none absolute inset-x-0 top-24 mx-auto hidden h-px max-w-7xl bg-gradient-to-r from-transparent via-brand-200/70 to-transparent dark:via-brand-500/20 lg:block"></div>

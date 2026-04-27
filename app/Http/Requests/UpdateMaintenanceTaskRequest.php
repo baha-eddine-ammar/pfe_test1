@@ -23,6 +23,7 @@
 namespace App\Http\Requests;
 
 use App\Models\MaintenanceTask;
+use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -49,7 +50,19 @@ class UpdateMaintenanceTaskRequest extends FormRequest
             'status' => ['required', Rule::in(MaintenanceTask::statusOptions())],
             'assigned_to_user_id' => [
                 'required',
-                Rule::exists('users', 'id'),
+                Rule::exists((new User)->getTable(), 'id')->where(function ($query): void {
+                    $query
+                        ->whereIn('role', ['staff', 'it_staff'])
+                        ->where(function ($approvalQuery): void {
+                            $approvalQuery
+                                ->where('status', 'approved')
+                                ->orWhere(function ($legacyQuery): void {
+                                    $legacyQuery
+                                        ->whereNull('status')
+                                        ->where('is_approved', true);
+                                });
+                        });
+                }),
             ],
         ];
     }

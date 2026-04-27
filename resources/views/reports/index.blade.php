@@ -26,7 +26,7 @@
                 <p class="app-section-title">Operational intelligence</p>
                 <h1 class="mt-2 font-display text-3xl font-semibold tracking-tight text-gray-900 dark:text-white">AI Reports</h1>
                 <p class="mt-3 max-w-3xl text-sm leading-7 text-gray-500 dark:text-gray-400">
-                    Generate concise operational reports from demo sensor history now, then swap to real ESP32 input later without changing the reporting flow.
+                    Generate concise operational reports from real ESP32 sensor readings and stored server telemetry.
                 </p>
             </div>
 

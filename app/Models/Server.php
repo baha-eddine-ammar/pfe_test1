@@ -13,9 +13,16 @@ class Server extends Model
 
     protected $fillable = [
         'name',
+        'description',
         'identifier',
+        'ip_address',
+        'server_type',
         'api_token',
         'last_seen_at',
+    ];
+
+    protected $hidden = [
+        'api_token',
     ];
 
     protected function casts(): array

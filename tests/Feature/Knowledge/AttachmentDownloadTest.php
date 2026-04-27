@@ -104,4 +104,33 @@ class AttachmentDownloadTest extends TestCase
 
         $response->assertRedirect(route('login', absolute: false));
     }
+
+    public function test_problem_attachment_download_rejects_files_outside_local_attachment_storage(): void
+    {
+        Storage::fake('public');
+
+        $user = User::factory()->create();
+        $problem = Problem::query()->create([
+            'user_id' => $user->id,
+            'title' => 'Network issue',
+            'description' => 'A switch is unreachable.',
+            'status' => 'open',
+        ]);
+
+        Storage::disk('public')->put('problem-attachments/public-only.txt', 'public content');
+
+        $attachment = ProblemAttachment::query()->create([
+            'problem_id' => $problem->id,
+            'original_name' => 'public-only.txt',
+            'file_path' => 'problem-attachments/public-only.txt',
+            'mime_type' => 'text/plain',
+            'file_size' => 14,
+        ]);
+
+        $response = $this
+            ->actingAs($user)
+            ->get(route('problems.attachments.download', $attachment));
+
+        $response->assertNotFound();
+    }
 }

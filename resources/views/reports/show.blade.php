@@ -4,6 +4,7 @@
     $metrics = collect($snapshot['metrics'] ?? []);
     $anomalies = collect($report->anomalies ?? []);
     $aiSummary = $report->latestAiSummary;
+    $predictiveInsights = collect($snapshot['predictive_insights'] ?? []);
 
     $typeClasses = [
         'daily' => 'bg-sky-100 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300',
@@ -244,6 +245,47 @@
                         @empty
                             <div class="rounded-2xl border border-dashed border-gray-200 px-4 py-10 text-center text-sm text-gray-500 dark:border-gray-800 dark:text-gray-400">
                                 No anomalies were recorded in this reporting period.
+                            </div>
+                        @endforelse
+                    </div>
+                </div>
+
+                <div class="app-card px-6 py-6 sm:px-7">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="app-section-title">Predictive maintenance</p>
+                            <h2 class="mt-2 font-display text-2xl font-semibold text-gray-900 dark:text-white">Preventive recommendations</h2>
+                        </div>
+                        <span class="app-pill bg-gray-100 text-gray-500 dark:bg-white/[0.03] dark:text-gray-300">
+                            {{ $predictiveInsights->count() }} insight{{ $predictiveInsights->count() === 1 ? '' : 's' }}
+                        </span>
+                    </div>
+
+                    <div class="mt-5 space-y-3">
+                        @forelse ($predictiveInsights as $insight)
+                            <div class="rounded-2xl border border-gray-100 px-4 py-4 dark:border-gray-800">
+                                <div class="flex items-start justify-between gap-4">
+                                    <div>
+                                        <p class="font-display text-lg font-semibold text-gray-900 dark:text-white">{{ $insight['title'] }}</p>
+                                        <p class="mt-2 text-sm leading-6 text-gray-500 dark:text-gray-400">{{ $insight['message'] }}</p>
+                                    </div>
+                                    <span class="app-pill {{ $insight['severity'] === 'Critical' ? 'bg-pink-100 text-pink-700 dark:bg-pink-500/10 dark:text-pink-300' : 'bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300' }}">
+                                        {{ $insight['severity'] }}
+                                    </span>
+                                </div>
+
+                                <div class="mt-3 flex flex-wrap gap-2">
+                                    <span class="app-pill bg-gray-100 text-gray-500 dark:bg-white/[0.03] dark:text-gray-300">
+                                        {{ $insight['metric'] }}
+                                    </span>
+                                    <span class="app-pill bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
+                                        {{ $insight['recommended_action'] }}
+                                    </span>
+                                </div>
+                            </div>
+                        @empty
+                            <div class="rounded-2xl border border-dashed border-gray-200 px-4 py-10 text-center text-sm text-gray-500 dark:border-gray-800 dark:text-gray-400">
+                                No preventive recommendations were generated for this reporting period.
                             </div>
                         @endforelse
                     </div>

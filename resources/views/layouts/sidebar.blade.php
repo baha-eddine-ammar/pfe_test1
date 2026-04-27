@@ -23,6 +23,7 @@
             'title' => 'Menu',
             'items' => [
                 ['label' => 'Dashboard', 'route' => route('dashboard'), 'pattern' => 'dashboard', 'icon' => 'dashboard', 'soon' => false],
+                ['label' => 'Server Section', 'route' => route('servers.index'), 'pattern' => 'servers.*', 'icon' => 'server', 'soon' => false],
                 ['label' => 'Maintenance', 'route' => route('maintenance.index'), 'pattern' => 'maintenance.*', 'icon' => 'tool', 'soon' => false],
                 ['label' => 'Reports', 'route' => route('reports.index'), 'pattern' => 'reports.*', 'icon' => 'chart', 'soon' => false],
                 ['label' => 'Calendar', 'route' => route('calendar.index'), 'pattern' => 'calendar.*', 'icon' => 'calendar', 'soon' => false],

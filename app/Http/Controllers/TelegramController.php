@@ -70,6 +70,10 @@ class TelegramController extends Controller
         $configuredSecret = trim((string) config('services.telegram.webhook_secret', ''));
         $providedSecret = (string) $request->header('X-Telegram-Bot-Api-Secret-Token', '');
 
+        if ($configuredSecret === '' && app()->isProduction()) {
+            return response('telegram webhook secret is not configured', 503);
+        }
+
         if ($configuredSecret !== '' && ! hash_equals($configuredSecret, $providedSecret)) {
             return response('forbidden', 403);
         }

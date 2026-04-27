@@ -29,9 +29,11 @@
 
 namespace App\Services;
 
+use App\Events\UserNotificationCreated;
 use App\Models\MaintenanceTask;
 use App\Models\Message;
 use App\Models\User;
+use App\Models\UserNotification;
 use Illuminate\Support\Str;
 
 class NotificationService
@@ -44,14 +46,21 @@ class NotificationService
         ?string $body = null,
         ?string $url = null,
         array $data = []
-    ): void {
-        $user->userNotifications()->create([
+    ): UserNotification {
+        $notification = $user->userNotifications()->create([
             'type' => $type,
             'title' => $title,
             'body' => $body,
             'url' => $url,
             'data' => $data,
         ]);
+
+        UserNotificationCreated::dispatch(
+            $notification->fresh(),
+            $user->userNotifications()->whereNull('read_at')->count()
+        );
+
+        return $notification;
     }
 
     // Sends the same notification to many users while avoiding duplicates.

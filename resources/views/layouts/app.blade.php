@@ -30,6 +30,8 @@
 
         <title>{{ config('app.name', 'Server Room Supervision') }}</title>
 
+        @include('layouts.partials.brand-preloader-head')
+
         <script>
             /*
              * Applies the saved theme as early as possible to avoid a flash
@@ -52,13 +54,17 @@
             })();
         </script>
 
-        @vite(['resources/css/app.css', 'resources/js/app.js'])
+        @vite(['resources/css/app.css', 'resources/js/app.js', 'resources/js/monitoring-widgets.jsx'])
     </head>
     <body
         class="app-shell"
+        data-auth-user-id="{{ auth()->id() }}"
+        data-auth-user-role="{{ auth()->user()?->role }}"
         x-data="{ profileOpen: false, notificationOpen: false }"
         x-init="$store.theme.init(); $store.sidebar.sync(); window.addEventListener('resize', () => $store.sidebar.sync())"
     >
+        @include('layouts.partials.brand-preloader')
+
         {{--
             Shared authenticated shell:
             sidebar on the left, topbar at the top, current page content in <main>.
@@ -82,5 +88,7 @@
                 </main>
             </div>
         </div>
+
+        @include('layouts.scripts.live-server-panel')
     </body>
 </html>

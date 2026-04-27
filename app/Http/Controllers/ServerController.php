@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreServerRequest;
 use App\Models\Server;
 use App\Services\ServerMonitoringService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -31,6 +32,16 @@ class ServerController extends Controller
         ]);
     }
 
+    public function feed(Server $server): JsonResponse
+    {
+        $server->load('latestMetric');
+
+        return response()
+            ->json($this->serverMonitoringService->buildCard($server))
+            ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+            ->header('Pragma', 'no-cache');
+    }
+
     public function create(): View
     {
         return view('servers.create');
@@ -41,9 +52,12 @@ class ServerController extends Controller
         $validated = $request->validated();
 
         $server = Server::query()->create([
-            'name' => trim($validated['name']),
-            'identifier' => Str::lower(trim($validated['identifier'])),
-            'api_token' => Str::random(40),
+            'name' => $validated['name'],
+            'description' => $validated['description'] ?? null,
+            'identifier' => $validated['identifier'],
+            'ip_address' => $validated['ip_address'] ?? null,
+            'server_type' => $validated['server_type'] ?? null,
+            'api_token' => ($validated['api_token'] ?? null) ?: Str::random(40),
         ]);
 
         return redirect()
@@ -61,6 +75,7 @@ class ServerController extends Controller
         return view('servers.show', [
             'server' => $server,
             'serverCard' => $this->serverMonitoringService->buildCard($server),
+            'feedUrl' => route('servers.feed', $server),
             'recentMetrics' => $server->metrics,
         ]);
     }

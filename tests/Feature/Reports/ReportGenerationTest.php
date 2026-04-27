@@ -3,6 +3,7 @@
 namespace Tests\Feature\Reports;
 
 use App\Models\Report;
+use App\Models\Server;
 use App\Models\User;
 use App\Services\Reports\ReportGenerationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -67,6 +68,36 @@ class ReportGenerationTest extends TestCase
         $this->assertSame('daily', $report->type);
         $this->assertNotEmpty($report->summary);
         $this->assertNotNull($report->latestAiSummary);
+    }
+
+    public function test_reports_include_real_server_metrics(): void
+    {
+        $user = User::factory()->create();
+        $server = Server::query()->create([
+            'name' => 'SRV-APP-01',
+            'identifier' => 'srv-app-01',
+            'api_token' => 'secret-token',
+        ]);
+
+        $server->metrics()->create([
+            'cpu_percent' => 91.5,
+            'ram_used_mb' => 7800,
+            'ram_total_mb' => 8000,
+            'disk_used_gb' => 450,
+            'disk_total_gb' => 500,
+            'net_rx_mbps' => 10,
+            'net_tx_mbps' => 5,
+            'temperature_c' => 72,
+            'created_at' => '2026-03-12 10:15:00',
+        ]);
+
+        $report = app(ReportGenerationService::class)->generate('daily', now()->setDate(2026, 3, 12), $user);
+
+        $this->assertSame('sensor_readings_and_server_metrics', $report->source);
+        $this->assertContains(
+            'server_cpu_percent',
+            collect($report->metrics_snapshot['metrics'])->pluck('key')->all()
+        );
     }
 
     public function test_report_detail_page_is_displayed(): void

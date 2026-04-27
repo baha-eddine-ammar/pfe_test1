@@ -25,7 +25,7 @@
 | HOW TO UNDERSTAND THIS FEATURE:
 | 1. Controller sends messages, directory, mentions, and summary to this page.
 | 2. This page renders the initial workspace.
-| 3. chat-workspace.js handles polling, filters, mentions, and sending.
+| 3. chat-workspace.js handles realtime sync, filters, mentions, and sending.
 | 4. Partial views are replaced during live updates.
 --}}
 <x-app-layout>
@@ -71,7 +71,7 @@
                         <div class="chat-mini-card">
                             <p class="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400 dark:text-slate-500">Live sync</p>
                             <p class="mt-2 text-sm font-semibold text-slate-950 dark:text-white">
-                                Every 5 seconds
+                                Instant via WebSocket
                             </p>
                         </div>
 
@@ -137,7 +137,7 @@
                 {{--
                     Team directory:
                     Rendered from $userDirectory, which already includes presence labels and role labels.
-                    The partial is refreshed during polling.
+                    The partial is refreshed after realtime events.
                 --}}
                 <div class="flex items-center justify-between gap-3 border-b border-slate-200/70 pb-5 dark:border-white/10">
                     <div>

@@ -44,6 +44,7 @@ use App\Http\Requests\UpdateMaintenanceTaskRequest;
 use App\Http\Requests\UpdateMaintenanceTaskStatusRequest;
 use App\Models\MaintenanceTask;
 use App\Models\User;
+use App\Services\AuditLogService;
 use App\Services\MaintenanceTaskWorkflowService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -73,10 +74,18 @@ class MaintenanceTaskController extends Controller
     | - $visibleTasksQuery: base query representing only the tasks this user may see.
     | - $tasks: paginated task list shown in the table/cards.
     */
+
+
+
+    //index() = show the main list page
     public function index(Request $request): View
     {
+
+        // Laravel authorization system => It checks a Policy : Can this user perform this action? ( inside MaintenanceTaskPolicy.php)
         $this->authorize('viewAny', MaintenanceTask::class);
 
+        // we remove the filter section for now
+        // begin
         $filters = $request->validate([
             'search' => ['nullable', 'string', 'max:255'],
             'priority' => ['nullable', Rule::in(MaintenanceTask::priorityOptions())],
@@ -90,16 +99,29 @@ class MaintenanceTaskController extends Controller
             'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
             'overdue' => ['nullable', 'in:0,1'],
         ]);
+        //end
+
+
+        // $viewer = get Get the currently logged-in user ( DH / stuff )
 
         $viewer = $request->user();
+
+        // if the user is DH load  assignable staff users ? else  give empty list
         $staffUsers = $viewer->isDepartmentHead()
             ? $this->assignableUsers()
             : collect();
+
+
+
+
+        // only show task this user is  allowed to see , we save it in $visibleTasksQuery to calculate later Completed tasks ..
 
         $visibleTasksQuery = MaintenanceTask::query()->visibleTo($viewer);
 
         // Data flow:
         // Database -> MaintenanceTask scopes -> paginated list -> Blade page
+
+        //Load task + related users together
         $tasks = MaintenanceTask::query()
             ->withListingRelations()
             ->visibleTo($viewer)
@@ -154,6 +176,12 @@ class MaintenanceTaskController extends Controller
             $request->user()
         );
 
+        app(AuditLogService::class)->record('maintenance.created', $maintenanceTask, [
+            'priority' => $maintenanceTask->priority,
+            'status' => $maintenanceTask->status,
+            'assigned_to_user_id' => $maintenanceTask->assigned_to_user_id,
+        ], $request->user());
+
         return redirect()
             ->route('maintenance.index')
             ->with('success', "Maintenance task #{$maintenanceTask->id} was created and the assignee has been notified.");
@@ -201,6 +229,12 @@ class MaintenanceTaskController extends Controller
             $request->user()
         );
 
+        app(AuditLogService::class)->record('maintenance.updated', $maintenanceTask->fresh(), [
+            'priority' => $maintenanceTask->priority,
+            'status' => $maintenanceTask->status,
+            'assigned_to_user_id' => $maintenanceTask->assigned_to_user_id,
+        ], $request->user());
+
         return $this->redirectToSafeTarget(
             $request,
             route('maintenance.index')
@@ -213,7 +247,11 @@ class MaintenanceTaskController extends Controller
         $this->authorize('delete', $maintenanceTask);
 
         $taskId = $maintenanceTask->id;
-        $this->workflowService->deleteTask($maintenanceTask);
+        app(AuditLogService::class)->record('maintenance.deleted', $maintenanceTask, [
+            'priority' => $maintenanceTask->priority,
+            'status' => $maintenanceTask->status,
+        ], $request->user());
+        $this->workflowService->deleteTask($maintenanceTask, $request->user());
 
         return $this->redirectToSafeTarget(
             $request,
@@ -234,6 +272,11 @@ class MaintenanceTaskController extends Controller
             $validated['note'] ?? null
         );
 
+        app(AuditLogService::class)->record('maintenance.status.updated', $maintenanceTask->fresh(), [
+            'status' => $validated['status'],
+            'note' => $validated['note'] ?? null,
+        ], $request->user());
+
         return $this->redirectToSafeTarget(
             $request,
             route('maintenance.index')
@@ -245,6 +288,8 @@ class MaintenanceTaskController extends Controller
     protected function assignableUsers()
     {
         return User::query()
+            ->approved()
+            ->staffMembers()
             ->select(['id', 'name', 'email', 'department'])
             ->orderBy('name')
             ->get();

@@ -3,7 +3,9 @@
 namespace Tests\Feature\Auth;
 
 use App\Models\User;
+use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
 class RegistrationTest extends TestCase
@@ -19,6 +21,8 @@ class RegistrationTest extends TestCase
 
     public function test_new_users_register_as_pending_staff_by_default(): void
     {
+        Notification::fake();
+
         $response = $this->post('/register', [
             'name' => 'Test User',
             'email' => 'test@draxmailer',
@@ -39,12 +43,14 @@ class RegistrationTest extends TestCase
             'status' => 'pending',
             'is_approved' => false,
         ]);
-        $this->assertTrue(User::query()->where('email', 'test@draxmailer')->first()->hasVerifiedEmail());
+        $this->assertFalse(User::query()->where('email', 'test@draxmailer')->first()->hasVerifiedEmail());
+        Notification::assertNothingSent();
     }
 
     public function test_valid_department_head_key_creates_an_approved_department_head(): void
     {
         config()->set('services.registration.department_head_key', '123456789');
+        Notification::fake();
 
         $response = $this->post('/register', [
             'name' => 'Head User',
@@ -67,5 +73,6 @@ class RegistrationTest extends TestCase
             'is_approved' => true,
         ]);
         $this->assertTrue($user->fresh()->hasVerifiedEmail());
+        Notification::assertNotSentTo($user, VerifyEmail::class);
     }
 }

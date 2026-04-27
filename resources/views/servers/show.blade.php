@@ -1,4 +1,33 @@
 <x-app-layout>
+    @php
+        $chartSamples = $recentMetrics
+            ->reverse()
+            ->values()
+            ->map(function ($metric) {
+                $ramProgress = $metric->ram_total_mb > 0
+                    ? round(($metric->ram_used_mb / $metric->ram_total_mb) * 100, 1)
+                    : 0;
+
+                $diskProgress = $metric->disk_total_gb > 0
+                    ? round(($metric->disk_used_gb / $metric->disk_total_gb) * 100, 1)
+                    : 0;
+
+                return [
+                    'label' => $metric->created_at?->timezone(config('app.timezone'))->format('H:i:s') ?? 'Sample',
+                    'cpu' => round((float) $metric->cpu_percent, 1),
+                    'ram' => max(0, min(100, $ramProgress)),
+                    'disk' => max(0, min(100, $diskProgress)),
+                    'network' => round((float) $metric->net_rx_mbps + (float) $metric->net_tx_mbps, 1),
+                ];
+            })
+            ->all();
+
+        $serverChartProps = [
+            'serverId' => $server->id,
+            'recentMetrics' => $chartSamples,
+        ];
+    @endphp
+
     <section class="mx-auto max-w-7xl">
         <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -30,20 +59,41 @@
 
         <div class="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(320px,1fr)]">
             <div class="space-y-6">
-                @include('dashboard.partials.server-card', ['server' => $serverCard])
+                @include('dashboard.partials.server-card', [
+                    'server' => $serverCard,
+                    'feedUrl' => $feedUrl,
+                ])
 
                 <div class="app-card px-6 py-6 sm:px-7">
                     <div class="flex items-center justify-between gap-4">
                         <div>
                             <p class="app-section-title">Telemetry</p>
                             <h2 class="mt-2 font-display text-2xl font-semibold text-gray-900 dark:text-white">
-                                Recent Metrics
+                                Live Server Trend
                             </h2>
                         </div>
 
                         <span class="app-pill bg-gray-100 text-gray-700 dark:bg-white/[0.05] dark:text-gray-300">
                             {{ $recentMetrics->count() }} sample(s)
                         </span>
+                    </div>
+
+                    <div class="mt-5">
+                        <div
+                            data-react-server-telemetry-chart
+                            data-props='{{ json_encode($serverChartProps, JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_TAG | JSON_HEX_QUOT) }}'
+                        ></div>
+                    </div>
+                </div>
+
+                <div class="app-card px-6 py-6 sm:px-7">
+                    <div class="flex items-center justify-between gap-4">
+                        <div>
+                            <p class="app-section-title">History</p>
+                            <h2 class="mt-2 font-display text-2xl font-semibold text-gray-900 dark:text-white">
+                                Recent Metrics
+                            </h2>
+                        </div>
                     </div>
 
                     <div class="mt-5 overflow-x-auto">
@@ -54,21 +104,37 @@
                                     <th class="pb-3 font-medium">CPU</th>
                                     <th class="pb-3 font-medium">RAM</th>
                                     <th class="pb-3 font-medium">Disk</th>
+                                    <th class="pb-3 font-medium">Temperature</th>
                                     <th class="pb-3 font-medium">Network</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
                                 @forelse ($recentMetrics as $metric)
                                     <tr>
-                                        <td class="py-3 text-gray-500 dark:text-gray-400">{{ $metric->created_at?->format('d M Y H:i:s') }}</td>
-                                        <td class="py-3 text-gray-900 dark:text-white">{{ number_format($metric->cpu_percent, 1) }}%</td>
-                                        <td class="py-3 text-gray-900 dark:text-white">{{ number_format($metric->ram_used_mb / 1024, 1) }}/{{ number_format($metric->ram_total_mb / 1024, 1) }} GB</td>
-                                        <td class="py-3 text-gray-900 dark:text-white">{{ number_format($metric->disk_used_gb, 1) }}/{{ number_format($metric->disk_total_gb, 1) }} GB</td>
-                                        <td class="py-3 text-gray-900 dark:text-white">↓ {{ number_format($metric->net_rx_mbps, 1) }} / ↑ {{ number_format($metric->net_tx_mbps, 1) }} Mbps</td>
+                                        <td class="py-3 text-gray-500 dark:text-gray-400">
+                                            {{ $metric->created_at?->timezone(config('app.timezone'))->format('d M Y H:i:s') }}
+                                        </td>
+                                        <td class="py-3 text-gray-900 dark:text-white">
+                                            {{ number_format($metric->cpu_percent, 1) }}%
+                                        </td>
+                                        <td class="py-3 text-gray-900 dark:text-white">
+                                            {{ number_format($metric->ram_used_mb / 1024, 1) }}/{{ number_format($metric->ram_total_mb / 1024, 1) }} GB
+                                        </td>
+                                        <td class="py-3 text-gray-900 dark:text-white">
+                                            {{ number_format($metric->disk_used_gb, 1) }}/{{ number_format($metric->disk_total_gb, 1) }} GB
+                                        </td>
+                                        <td class="py-3 text-gray-900 dark:text-white">
+                                            {{ $metric->temperature_c !== null ? number_format($metric->temperature_c, 1).' C' : 'Unavailable' }}
+                                        </td>
+                                        <td class="py-3 text-gray-900 dark:text-white">
+                                            {{ $metric->network_name ?: 'Network' }} -
+                                            ↓ {{ number_format($metric->net_rx_mbps, 1) }} /
+                                            ↑ {{ number_format($metric->net_tx_mbps, 1) }} Mbps
+                                        </td>
                                     </tr>
                                 @empty
                                     <tr>
-                                        <td colspan="5" class="py-6 text-center text-gray-500 dark:text-gray-400">
+                                        <td colspan="6" class="py-6 text-center text-gray-500 dark:text-gray-400">
                                             No telemetry received yet. Send the first metric payload from your monitoring agent.
                                         </td>
                                     </tr>
@@ -110,7 +176,7 @@
                                 Registered
                             </p>
                             <p class="mt-2 font-medium text-gray-900 dark:text-white">
-                                {{ $server->created_at?->format('d M Y H:i') }}
+                                {{ $server->created_at?->timezone(config('app.timezone'))->format('d M Y H:i') }}
                             </p>
                         </div>
                     </div>
@@ -153,7 +219,8 @@
   "disk_used_gb": 320.4,
   "disk_total_gb": 1000,
   "net_rx_mbps": 12.8,
-  "net_tx_mbps": 4.2
+  "net_tx_mbps": 4.2,
+  "temperature_c": 42.5
 }</code></pre>
                             <p class="mt-3 text-sm text-gray-500 dark:text-gray-400">
                                 Send the token in the <span class="font-mono">X-Server-Token</span> header to authenticate the server agent.

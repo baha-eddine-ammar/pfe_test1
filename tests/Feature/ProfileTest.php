@@ -134,4 +134,17 @@ class ProfileTest extends TestCase
 
         $this->assertNotNull($user->fresh());
     }
+
+    public function test_telegram_link_fields_are_hidden_from_default_user_serialization(): void
+    {
+        $user = User::factory()->create([
+            'telegram_chat_id' => '123456789',
+            'telegram_link_token' => 'secret-link-token',
+        ]);
+
+        $serialized = $user->toArray();
+
+        $this->assertArrayNotHasKey('telegram_chat_id', $serialized);
+        $this->assertArrayNotHasKey('telegram_link_token', $serialized);
+    }
 }

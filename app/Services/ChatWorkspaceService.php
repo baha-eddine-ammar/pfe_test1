@@ -15,7 +15,7 @@
 |
 | When this file is used:
 | - When the chat page is loaded
-| - When the frontend polls for updates
+| - When the frontend syncs after WebSocket events or visibility changes
 | - When a new message is stored
 |
 | FILES TO READ (IN ORDER):
@@ -32,11 +32,12 @@
 | 2. This service loads users and messages from the database.
 | 3. It shapes them into arrays the UI can render directly.
 | 4. It detects @mentions and notifies mentioned users.
-| 5. The frontend polls the sync endpoint for incremental updates.
+| 5. The frontend calls the sync endpoint after realtime events.
 */
 
 namespace App\Services;
 
+use App\Events\ChatMessageCreated;
 use App\Models\Message;
 use App\Models\User;
 use Carbon\Carbon;
@@ -50,7 +51,7 @@ class ChatWorkspaceService
     // SNAPSHOT_LIMIT controls how many older messages are loaded on full page load.
     protected const SNAPSHOT_LIMIT = 90;
 
-    // APPEND_LIMIT controls how many new messages are appended during polling.
+    // APPEND_LIMIT controls how many new messages are appended during realtime sync.
     protected const APPEND_LIMIT = 24;
 
     // These cached properties avoid re-querying the full user list repeatedly
@@ -99,7 +100,7 @@ class ChatWorkspaceService
         ];
     }
 
-    // Used by polling. If filters are still at their default values, the
+    // Used by realtime sync. If filters are still at their default values, the
     // frontend can append only new messages after the latest known ID.
     public function syncPayload(User $viewer, array $filters, ?int $afterId = null): array
     {
@@ -132,6 +133,7 @@ class ChatWorkspaceService
         $message->load('user');
 
         $this->notifyMentionedUsers($message, $sender);
+        ChatMessageCreated::dispatch($message);
 
         return $message;
     }
@@ -155,6 +157,7 @@ class ChatWorkspaceService
             'online_count' => $onlineCount,
             'recent_count' => $recentCount,
             'last_message_id' => (int) $lastMessageId,
+            'current_user_id' => $viewer->id,
             'synced_at' => now()->format('H:i:s'),
         ];
     }
@@ -284,7 +287,7 @@ class ChatWorkspaceService
             ->get();
     }
 
-    // Base query used by both the initial page load and the polling endpoint.
+    // Base query used by both the initial page load and the sync endpoint.
     // This keeps filtering logic consistent everywhere.
     protected function queryMessages(User $viewer, array $filters): Builder
     {

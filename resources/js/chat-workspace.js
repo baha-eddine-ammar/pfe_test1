@@ -5,7 +5,7 @@
 | This file defines the Alpine component used by the Team Chat page.
 |
 | What it does:
-| - polls for new messages and updated user presence
+| - refreshes messages from WebSocket events and visibility changes
 | - syncs filters with the URL
 | - manages the @mention dropdown
 | - sends new messages with AJAX
@@ -45,9 +45,9 @@ export default (config = {}) => ({
     sending: false,
     sendError: '',
     successMessage: '',
-    pollHandle: null,
     filterHandle: null,
     successHandle: null,
+    echoBound: false,
     mentionMenuOpen: false,
     mentionIndex: 0,
     mentionQuery: '',
@@ -68,7 +68,8 @@ export default (config = {}) => ({
             this.refreshSnapshot(true);
         });
 
-        this.startPolling();
+        this.startVisibilitySync();
+        this.startRealtime();
 
         if (this.highlightMessageId > 0) {
             this.$nextTick(() => {
@@ -76,17 +77,24 @@ export default (config = {}) => ({
             });
         }
     },
-    // Starts lightweight polling instead of full-page reloads or heavy realtime infra.
-    startPolling() {
-        this.pollHandle = window.setInterval(() => {
-            this.refreshMessages();
-        }, 5000);
-
+    // Re-syncs once when the tab becomes visible in case the socket was offline.
+    startVisibilitySync() {
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'visible') {
                 this.refreshSnapshot(false);
             }
         });
+    },
+    startRealtime() {
+        if (this.echoBound) {
+            return;
+        }
+
+        window.addEventListener('chat-message-created', () => {
+            this.refreshMessages(false, this.isNearBottom());
+        });
+
+        this.echoBound = true;
     },
     // Focuses the composer again after successful sends.
     restoreComposerFocus() {
@@ -267,7 +275,7 @@ export default (config = {}) => ({
         };
     },
     /*
-     * Main polling method.
+     * Main sync method.
      * It calls ChatController@messages and receives:
      * - rendered message HTML
      * - rendered user directory HTML

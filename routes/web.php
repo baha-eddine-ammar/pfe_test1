@@ -58,10 +58,10 @@ Route::get('/', function () {
     return view('welcome');
 });
 
+// for now  we dont use it yet
 Route::get('/launch', [LaunchController::class, 'index'])->name('launch');
 
 Route::post('/telegram/webhook', [TelegramController::class, 'webhook'])->name('telegram.webhook');
-
 
 // Dashboard routes:
 // These routes power the main monitoring page plus the JSON feeds used by the
@@ -77,14 +77,6 @@ Route::get('/dashboard/temperature-feed', [DashboardController::class, 'temperat
 Route::get('/dashboard/humidity-feed', [DashboardController::class, 'humidityFeed'])
     ->middleware(['auth', 'verified'])
     ->name('dashboard.humidity');
-
-Route::get('/dashboard/airflow-feed', [DashboardController::class, 'airFlowFeed'])
-    ->middleware(['auth', 'verified'])
-    ->name('dashboard.airflow');
-
-Route::get('/dashboard/power-usage-feed', [DashboardController::class, 'powerUsageFeed'])
-    ->middleware(['auth', 'verified'])
-    ->name('dashboard.power');
 
 Route::get('/dashboard/trend-feed', [DashboardController::class, 'trendFeed'])
     ->middleware(['auth', 'verified'])
@@ -128,8 +120,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/chat', [ChatController::class, 'index'])->name('chat.index');
     Route::post('/chat', [ChatController::class, 'store'])->middleware('throttle:chat-messages')->name('chat.store');
     Route::get('/chat/messages', [ChatController::class, 'messages'])->middleware('throttle:chat-sync')->name('chat.messages');
+
+    // AI chat routes
     Route::get('/ai-chat', [AIChatController::class, 'index'])->name('ai-chat.index');
     Route::post('/ai-chat/send', [AIChatController::class, 'send'])->middleware('throttle:ai-chat')->name('ai-chat.send');
+
+
     Route::get('/calendar', [CalendarController::class, 'index'])->name('calendar.index');
 
     Route::get('/problems', [ProblemController::class, 'index'])->name('problems.index');
@@ -143,6 +139,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('/problems/{problem}/solutions', [SolutionController::class, 'store'])->name('problems.solutions.store');
 
     Route::get('/servers', [ServerController::class, 'index'])->name('servers.index');
+    Route::get('/servers/{server}/feed', [ServerController::class, 'feed'])->whereNumber('server')->name('servers.feed');
     Route::get('/servers/{server}', [ServerController::class, 'show'])->whereNumber('server')->name('servers.show');
 
     Route::get('/maintenance', [MaintenanceTaskController::class, 'index'])->name('maintenance.index');
@@ -153,6 +150,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
 // Department-head-only creation/management actions:
 // These routes change shared system data, so they are restricted to the admin
 // role used in this project.
+//middleware is : a security/filter layer that runs before the controller
+//['auth', 'verified', 'department.head'] : This is an array of 3 middlewares.
 Route::middleware(['auth', 'verified', 'department.head'])->group(function () {
     Route::get('/servers/create', [ServerController::class, 'create'])->name('servers.create');
     Route::post('/servers', [ServerController::class, 'store'])->name('servers.store');

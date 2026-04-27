@@ -3,7 +3,9 @@
 namespace Tests\Feature\Admin;
 
 use App\Models\User;
+use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
 class UserManagementTest extends TestCase
@@ -38,6 +40,8 @@ class UserManagementTest extends TestCase
 
     public function test_department_head_can_approve_a_pending_user(): void
     {
+        Notification::fake();
+
         $admin = User::factory()->create([
             'role' => 'department_head',
             'status' => 'approved',
@@ -48,6 +52,7 @@ class UserManagementTest extends TestCase
             'role' => 'staff',
             'status' => 'pending',
             'is_approved' => false,
+            'email_verified_at' => null,
         ]);
 
         $response = $this->actingAs($admin)->patch(route('admin.users.approve', $pendingUser));
@@ -58,6 +63,7 @@ class UserManagementTest extends TestCase
             'status' => 'approved',
             'is_approved' => true,
         ]);
+        Notification::assertSentTo($pendingUser, VerifyEmail::class);
     }
 
     public function test_department_head_can_promote_and_demote_users(): void

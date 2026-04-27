@@ -18,7 +18,7 @@
 | 2. app/Http/Controllers/Api/ServerMetricsController.php
 | 3. app/Models/Server.php and app/Models/ServerMetric.php
 */
-
+use App\Http\Controllers\Api\SensorReadingController;
 use App\Http\Controllers\Api\ServerMetricsController;
 use Illuminate\Support\Facades\Route;
 
@@ -26,3 +26,7 @@ use Illuminate\Support\Facades\Route;
 Route::post('/server-metrics', [ServerMetricsController::class, 'store'])
     ->middleware('throttle:server-metrics')
     ->name('api.server-metrics.store');
+
+Route::post('/sensor-readings', [SensorReadingController::class, 'store'])
+    ->middleware('throttle:sensor-readings')
+    ->name('api.sensor-readings.store');

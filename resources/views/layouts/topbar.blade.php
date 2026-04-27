@@ -28,7 +28,7 @@
         'calendar.index' => ['eyebrow' => 'Planning', 'title' => 'Calendar'],
         'chat.index' => ['eyebrow' => 'Communication', 'title' => 'Team Chat'],
         'ai-chat.index' => ['eyebrow' => 'Communication', 'title' => 'AI Chat'],
-        'servers.index' => ['eyebrow' => 'Infrastructure', 'title' => 'Servers'],
+        'servers.index' => ['eyebrow' => 'Infrastructure', 'title' => 'Server Section'],
         'servers.create' => ['eyebrow' => 'Infrastructure', 'title' => 'Add Server'],
         'servers.show' => ['eyebrow' => 'Infrastructure', 'title' => 'Server Detail'],
         'problems.index' => ['eyebrow' => 'Knowledge', 'title' => 'Problems'],
@@ -105,9 +105,9 @@
                         Reads recent rows from user_notifications and links the
                         user to the correct destination when clicked.
                     --}}
-                    <button type="button" class="app-icon-button relative" aria-label="Notifications" @click="notificationOpen = !notificationOpen; profileOpen = false">
+                    <button type="button" class="app-icon-button relative" aria-label="Notifications" data-notification-button @click="notificationOpen = !notificationOpen; profileOpen = false">
                         @if ($unreadNotificationsCount > 0)
-                            <span class="absolute right-2 top-2 inline-flex min-w-[1.15rem] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white">
+                            <span data-notification-count-badge class="absolute right-2 top-2 inline-flex min-w-[1.15rem] items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white">
                                 {{ $unreadNotificationsCount > 9 ? '9+' : $unreadNotificationsCount }}
                             </span>
                         @endif
@@ -127,7 +127,7 @@
                         <div class="flex items-start justify-between gap-4">
                             <div>
                                 <p class="font-display text-lg font-semibold text-gray-900 dark:text-white">Notifications</p>
-                                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ $unreadNotificationsCount }} unread</p>
+                                <p data-notification-unread-text class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ $unreadNotificationsCount }} unread</p>
                             </div>
 
                             @if ($unreadNotificationsCount > 0)
@@ -142,7 +142,7 @@
                             @endif
                         </div>
 
-                        <div class="mt-4 space-y-3">
+                        <div data-notification-list class="mt-4 space-y-3">
                             @forelse ($latestNotifications as $notification)
                                 @php
                                     $toneClass = match ($notification->type) {

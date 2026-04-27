@@ -106,13 +106,19 @@ class RegisteredUserController extends Controller
             'password' => Hash::make($request->password),
         ]);
 
-        $user->forceFill([
-            'email_verified_at' => now(),
-        ])->save();
-
         // Approved users can enter the system immediately.
+        // Department heads are trusted through the secret registration key,
+        // so they are allowed to access the workspace immediately.
         // Pending staff users are redirected to login with a waiting message.
         if ($user->hasApprovedStatus()) {
+            if ($user->isDepartmentHead()) {
+                $user->forceFill([
+                    'email_verified_at' => now(),
+                ])->save();
+            } else {
+                $user->sendEmailVerificationNotification();
+            }
+
             Auth::login($user);
 
             return redirect(route('dashboard', absolute: false));

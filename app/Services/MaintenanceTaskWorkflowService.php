@@ -35,6 +35,7 @@
 
 namespace App\Services;
 
+use App\Events\MaintenanceTaskChanged;
 use App\Models\MaintenanceTask;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -102,6 +103,9 @@ class MaintenanceTaskWorkflowService
         });
 
         $this->dispatchAssignmentNotifications($maintenanceTask, $actor);
+        $this->broadcastChange('created', $maintenanceTask, [
+            $maintenanceTask->assigned_to_user_id,
+        ]);
 
         return $maintenanceTask;
     }
@@ -163,6 +167,11 @@ class MaintenanceTaskWorkflowService
             $this->dispatchAssignmentNotifications($updatedTask, $actor);
         }
 
+        $this->broadcastChange('updated', $updatedTask, [
+            $previousAssignedUserId,
+            $updatedTask->assigned_to_user_id,
+        ]);
+
         return $updatedTask;
     }
 
@@ -172,7 +181,7 @@ class MaintenanceTaskWorkflowService
         $trimmedNote = $note !== null ? trim($note) : null;
         $previousStatus = $maintenanceTask->status;
 
-        return DB::transaction(function () use ($maintenanceTask, $status, $actor, $trimmedNote, $previousStatus): MaintenanceTask {
+        $updatedTask = DB::transaction(function () use ($maintenanceTask, $status, $actor, $trimmedNote, $previousStatus): MaintenanceTask {
             $maintenanceTask->update([
                 'status' => $status,
             ]);
@@ -209,15 +218,30 @@ class MaintenanceTaskWorkflowService
 
             return $maintenanceTask->fresh(['createdByUser', 'assignedToUser']);
         });
+
+        $this->broadcastChange('status_updated', $updatedTask, [
+            $updatedTask->assigned_to_user_id,
+        ]);
+
+        return $updatedTask;
     }
 
     // Deleting currently has no extra side effects besides removing the row.
     // A transaction is still used so future workflow steps can be added safely.
-    public function deleteTask(MaintenanceTask $maintenanceTask): void
+    public function deleteTask(MaintenanceTask $maintenanceTask, ?User $actor = null): void
     {
+        $maintenanceTask->loadMissing(['createdByUser', 'assignedToUser']);
+        $payload = $this->taskPayload($maintenanceTask);
+        $userIds = [
+            $maintenanceTask->assigned_to_user_id,
+            $actor?->id,
+        ];
+
         DB::transaction(function () use ($maintenanceTask): void {
             $maintenanceTask->delete();
         });
+
+        MaintenanceTaskChanged::dispatch('deleted', $payload, $userIds);
     }
 
     // Sends notifications only when the task has a real assignee.
@@ -272,5 +296,30 @@ class MaintenanceTaskWorkflowService
             ->replace('_', ' ')
             ->title()
             ->toString();
+    }
+
+    protected function broadcastChange(string $action, MaintenanceTask $maintenanceTask, array $userIds = []): void
+    {
+        $maintenanceTask->loadMissing(['createdByUser', 'assignedToUser']);
+
+        MaintenanceTaskChanged::dispatch(
+            $action,
+            $this->taskPayload($maintenanceTask),
+            $userIds
+        );
+    }
+
+    protected function taskPayload(MaintenanceTask $maintenanceTask): array
+    {
+        return [
+            'id' => $maintenanceTask->id,
+            'server_room' => $maintenanceTask->server_room,
+            'priority' => $maintenanceTask->priority,
+            'status' => $maintenanceTask->status,
+            'assigned_to_user_id' => $maintenanceTask->assigned_to_user_id,
+            'created_by_user_id' => $maintenanceTask->created_by_user_id,
+            'maintenance_date' => $maintenanceTask->maintenance_date?->toIso8601String(),
+            'updated_at' => $maintenanceTask->updated_at?->toIso8601String(),
+        ];
     }
 }

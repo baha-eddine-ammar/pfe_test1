@@ -1,224 +1,191 @@
 # Server Room Supervision
 
-Laravel web application for supervising an IT server room.
+Production-ready Laravel application for supervising server room telemetry, environmental sensors, maintenance workflows, reports, notifications, and user administration.
 
-## Current Stack
+## Stack
 
-- Laravel 12
-- PHP 8.2
+- Laravel 12, PHP 8.2+
 - MySQL
-- Tailwind CSS + Vite
-- Laravel Breeze
-- Mailpit for local mail testing
-- XAMPP for MySQL and phpMyAdmin
+- Blade UI with Vite assets and embedded React monitoring widgets
+- Laravel Reverb / Echo for WebSocket updates
+- Database queues and cache by default
+- ESP32 sensor ingestion and Python server monitoring agent ingestion
 
-## What Is Implemented So Far
+## Requirements
 
-- Authentication with Laravel Breeze
-- Registration and login
-- Password reset via Mailpit
-- Email verification
-- Registration restricted to `@draxmailer`
-- Department selection at registration
-- Role selection at registration
-- Dashboard showing current user info
-- Department Head-only admin area
-- Policy-protected users list
-- Initial approval flow with `is_approved`
+- PHP 8.2 or newer with common Laravel extensions
+- Composer
+- Node.js LTS and npm
+- MySQL 8 or compatible MariaDB
+- Web server such as Nginx or Apache
+- Supervisor or systemd for queue workers and Reverb in production
+- Redis is optional, but recommended if Reverb scaling or Redis cache/queues are enabled
 
-## Current Roles
-
-- `department_head`
-- `it_staff`
-
-## Important Current Rule
-
-- `department_head` users can access `/admin` only if `is_approved = 1`
-- New `it_staff` users are auto-approved
-- New `department_head` users are not auto-approved
-
-## Required Software
-
-Install these tools before running the project:
-
-1. XAMPP
-2. Composer
-3. Node.js LTS
-4. Git
-5. Mailpit
-
-## Windows Setup
-
-### 1. Start XAMPP
-
-Open XAMPP Control Panel and start:
-
-- Apache
-- MySQL
-
-Useful URLs:
-
-- phpMyAdmin: `http://localhost/phpmyadmin`
-
-### 2. Clone The Repository
-
-```bash
-git clone https://github.com/baha-eddine-ammar/pfe_test1.git
-cd pfe_test1
-```
-
-### 3. Install Dependencies
+## Local Installation
 
 ```bash
 composer install
 npm install
+cp .env.example .env
+php artisan key:generate
+php artisan migrate
+php artisan storage:link
+npm run dev
+php artisan serve
 ```
 
-### 4. Create Environment File
-
-Copy `.env.example` to `.env`.
-
-On Windows PowerShell:
+For Windows PowerShell, replace the copy command with:
 
 ```powershell
 Copy-Item .env.example .env
 ```
 
-### 5. Generate App Key
+## Production Deployment
+
+1. Clone the repository on the server.
+2. Create a production `.env` file from `.env.example`.
+3. Set real production values for `APP_URL`, database credentials, mail, Reverb, API tokens, and secrets.
+4. Install optimized dependencies and build assets:
 
 ```bash
+composer install --no-dev --optimize-autoloader
+npm ci
+npm run build
 php artisan key:generate
+php artisan migrate --force
+php artisan storage:link
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
+php artisan optimize
 ```
 
-### 6. Create Database
+Use `php artisan key:generate` only when creating a new environment. Do not rotate `APP_KEY` on an existing production app unless you understand the impact on encrypted data and sessions.
 
-Create this MySQL database in phpMyAdmin:
+## Required Permissions
 
-- `server_room_supervision`
+The web server user must be able to write to `storage/` and `bootstrap/cache/`.
 
-Or use terminal:
+Linux example:
 
 ```bash
-"C:\xampp\mysql\bin\mysql.exe" -u root -e "CREATE DATABASE IF NOT EXISTS server_room_supervision CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+sudo chown -R www-data:www-data storage bootstrap/cache
+sudo chmod -R ug+rwX storage bootstrap/cache
 ```
 
-### 7. Run Migrations
+On shared hosting, make sure both folders are writable by the PHP process.
+
+## Environment Notes
+
+Production values should include:
+
+```dotenv
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=https://your-domain.com
+APP_TIMEZONE=Africa/Tunis
+SESSION_SECURE_COOKIE=true
+LOG_LEVEL=warning
+```
+
+Keep `.env` private. Never commit real keys, database passwords, ESP32 tokens, Telegram tokens, Groq keys, mail passwords, or Reverb secrets.
+
+## Queue, Scheduler, And Cache
+
+This project uses database-backed queues and cache by default. Run migrations before starting workers.
+
+Production queue worker example:
 
 ```bash
-php artisan migrate
+php artisan queue:work --tries=3 --timeout=90
 ```
 
-### 8. Start Mailpit
+Production scheduler cron:
 
-Run Mailpit, then open:
+```cron
+* * * * * cd /path/to/project && php artisan schedule:run >> /dev/null 2>&1
+```
 
-- Mailpit UI: `http://127.0.0.1:8025`
+If you switch to Redis, update `CACHE_STORE`, `QUEUE_CONNECTION`, and the Redis credentials in `.env`, then restart workers.
 
-Mailpit defaults used by this project:
+## Reverb And WebSocket Deployment
 
-- SMTP host: `127.0.0.1`
-- SMTP port: `1025`
-
-### 9. Start The App
-
-Terminal 1:
+For local development:
 
 ```bash
-php artisan serve
+php artisan reverb:start --host=0.0.0.0 --port=8080
 ```
 
-Terminal 2:
+For production, run Reverb under Supervisor or systemd and proxy WebSocket traffic through Nginx or Apache with SSL enabled.
+
+Common production `.env` values:
+
+```dotenv
+BROADCAST_CONNECTION=reverb
+REVERB_SERVER_HOST=0.0.0.0
+REVERB_SERVER_PORT=8080
+REVERB_HOST=your-domain.com
+REVERB_PORT=443
+REVERB_SCHEME=https
+REVERB_ALLOWED_ORIGINS=https://your-domain.com
+VITE_REVERB_APP_KEY="${REVERB_APP_KEY}"
+VITE_REVERB_HOST="${REVERB_HOST}"
+VITE_REVERB_PORT="${REVERB_PORT}"
+VITE_REVERB_SCHEME="${REVERB_SCHEME}"
+```
+
+After changing Reverb or Vite environment values, run `npm run build` again and restart the Reverb process.
+
+## ESP32 And Python Agent
+
+- Configure the ESP32 and Python monitoring agent to send only real telemetry values.
+- Keep ingestion tokens private and rotate them if exposed.
+- Confirm server time is set correctly and Laravel uses `APP_TIMEZONE=Africa/Tunis` for local display and timestamps where applicable.
+- Monitor ingestion logs after deployment to confirm CPU, RAM, disk, temperature, network, humidity, air flow, and power metrics continue arriving.
+
+## Production Checklist
+
+- `.env` exists on the server and is not committed.
+- `APP_ENV=production`, `APP_DEBUG=false`, and `APP_URL` uses HTTPS.
+- Database credentials are production credentials, not local root credentials.
+- `APP_KEY` is generated and stored safely.
+- `storage/` and `bootstrap/cache/` are writable.
+- `composer install --no-dev --optimize-autoloader` completed.
+- `npm ci && npm run build` completed.
+- `php artisan migrate --force` completed.
+- `php artisan storage:link` completed.
+- `php artisan config:cache`, `route:cache`, `view:cache`, and `optimize` completed.
+- Queue worker is running and supervised.
+- Scheduler cron is installed.
+- Reverb is running and supervised if WebSockets are enabled.
+- SSL certificate is installed and auto-renewal is configured.
+- Backups are configured for MySQL and uploaded files.
+- Logs are monitored and rotated.
+- No `.env`, `vendor/`, `node_modules/`, build artifacts, logs, database dumps, or cache files are committed.
+
+## Development Commands
 
 ```bash
-npm run dev
+composer test
+npm run build
+php artisan config:clear
+php artisan route:clear
+php artisan optimize:clear
 ```
 
-Open:
+## Git Hygiene
 
-- App: `http://127.0.0.1:8000`
-- Register: `http://127.0.0.1:8000/register`
-- Login: `http://127.0.0.1:8000/login`
-- Forgot password: `http://127.0.0.1:8000/forgot-password`
-- Admin: `http://127.0.0.1:8000/admin`
-- Admin users: `http://127.0.0.1:8000/admin/users`
+Commit source code, configuration examples, migrations, tests, public source assets, and documentation.
 
-## Mail Testing
+Do not commit generated dependencies or secrets:
 
-This project uses Mailpit for local mail testing.
-
-Use it to test:
-
-- Password reset emails
-- Email verification emails
-
-## Development Notes
-
-### Registering Users
-
-- Email must end with `@draxmailer`
-- Allowed departments:
-  - `Network`
-  - `Security`
-  - `Systems`
-  - `Infrastructure`
-- Allowed roles:
-  - `department_head`
-  - `it_staff`
-
-### Department Head Approval
-
-If a new Department Head gets `403 Forbidden` on `/admin`, approve the account manually for now.
-
-Use Laravel Tinker:
-
-```bash
-php artisan tinker
-```
-
-Then run:
-
-```php
-App\Models\User::where('email', 'friend@draxmailer')->update(['is_approved' => true]);
-```
-
-Exit:
-
-```php
-exit
-```
-
-## Collaboration Workflow
-
-Recommended workflow for both developers:
-
-1. Pull latest changes before starting work
-2. Create a feature branch
-3. Commit only relevant changes
-4. Push the branch
-5. Open a Pull Request
-
-Example:
-
-```bash
-git checkout main
-git pull origin main
-git checkout -b feature/your-task-name
-```
-
-## Notes About Secrets
-
-- Do not commit `.env`
-- Do not commit local database dumps unless needed
-- Do not commit `vendor` or `node_modules`
-
-## First Troubleshooting Checks
-
-If the app does not run, check:
-
-1. XAMPP MySQL is running
-2. Mailpit is running
-3. `.env` exists
-4. Database `server_room_supervision` exists
-5. `php artisan migrate` was executed
-6. `composer install` and `npm install` completed successfully
-7. `php artisan key:generate` was executed
+- `.env`
+- `vendor/`
+- `node_modules/`
+- `public/build/`
+- `public/storage/`
+- `storage/logs/`
+- `storage/framework/*` runtime files
+- `bootstrap/cache/*.php`
+- local database dumps
+- IDE workspace files

@@ -2,10 +2,13 @@
 
 namespace App\Services\Reports;
 
+use App\Events\ReportGenerated;
 use App\Contracts\Reports\SensorDataProvider;
 use App\Models\Report;
 use App\Models\ReportAiSummary;
+use App\Services\PredictiveMaintenanceService;
 use App\Models\User;
+use App\Services\AuditLogService;
 use App\Services\TelegramService;
 use Carbon\Carbon;
 use Carbon\CarbonImmutable;
@@ -19,6 +22,8 @@ class ReportGenerationService
         private readonly ReportMetricsCalculator $calculator,
         private readonly GroqReportSummaryService $aiSummaryService,
         private readonly TelegramService $telegramService,
+        private readonly AuditLogService $auditLogService,
+        private readonly PredictiveMaintenanceService $predictiveMaintenanceService,
     ) {
     }
 
@@ -27,6 +32,7 @@ class ReportGenerationService
         [$periodStart, $periodEnd] = $this->resolvePeriod($type, CarbonImmutable::instance($referenceDate));
         $dataset = $this->sensorDataProvider->forPeriod($type, $periodStart, $periodEnd);
         $snapshot = $this->calculator->calculate($type, $periodStart, $periodEnd, $dataset);
+        $snapshot['predictive_insights'] = $this->predictiveMaintenanceService->insightsForSnapshot($snapshot);
 
         $report = DB::transaction(function () use ($type, $periodStart, $periodEnd, $dataset, $snapshot, $user): Report {
             $report = Report::query()->create([
@@ -66,6 +72,17 @@ class ReportGenerationService
                 });
         }
 
+        $this->auditLogService->record('report.generated', $report, [
+            'type' => $report->type,
+            'source' => $report->source,
+                'critical_count' => $criticalCount,
+                'warning_count' => (int) ($snapshot['overview']['warning_count'] ?? 0),
+                'reading_count' => (int) ($snapshot['overview']['reading_count'] ?? 0),
+                'predictive_insights' => count($snapshot['predictive_insights'] ?? []),
+            ], $user);
+
+        ReportGenerated::dispatch($report);
+
         return $report;
     }
 
@@ -75,6 +92,13 @@ class ReportGenerationService
 
         return DB::transaction(function () use ($report, $summaryData): ReportAiSummary {
             $summary = $this->persistSummary($report, $summaryData);
+
+            $this->auditLogService->record('report.summary.regenerated', $report, [
+                'summary_id' => $summary->id,
+                'provider' => $summary->provider,
+                'model' => $summary->model,
+                'status' => $summary->status,
+            ]);
 
             return $summary->refresh();
         });

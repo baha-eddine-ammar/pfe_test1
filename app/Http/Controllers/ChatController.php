@@ -11,7 +11,7 @@
 | Why this file exists:
 | Chat needs endpoints for:
 | - loading the main chat page
-| - polling for fresh messages/presence updates
+| - syncing fresh messages/presence updates after realtime events
 | - storing new messages
 |
 | When this file is used:
@@ -87,7 +87,7 @@ class ChatController extends Controller
         ]);
     }
 
-    // Lightweight polling endpoint used by the frontend to fetch new messages
+    // Lightweight sync endpoint used by the frontend to fetch new messages
     // and refreshed presence/sidebar data without reloading the full page.
     public function messages(Request $request): JsonResponse
     {
@@ -156,7 +156,7 @@ class ChatController extends Controller
     }
 
     // Validates optional query-string filters used by the chat UI.
-    // Keeping this in one method ensures both the page load and polling
+    // Keeping this in one method ensures both the page load and sync
     // endpoint interpret filters exactly the same way.
     protected function validatedFilters(Request $request): array
     {

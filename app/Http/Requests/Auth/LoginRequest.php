@@ -14,6 +14,12 @@ use Illuminate\Validation\ValidationException;
 class LoginRequest extends FormRequest
 {
     /**
+     * A valid bcrypt hash used to keep password verification work consistent
+     * even when the email address does not exist.
+     */
+    private const DUMMY_PASSWORD_HASH = '$2y$10$4wuSbJ.l0tuDivgsSgP3/eSPsnTAwugL9IKt5CINg2jTFrt4JIRkW';
+
+    /**
      * Determine if the user is authorized to make this request.
      */
     public function authorize(): bool
@@ -43,19 +49,30 @@ class LoginRequest extends FormRequest
     {
         $this->ensureIsNotRateLimited();
 
-        $email = $this->string('email')->toString();
+        $email = Str::lower(trim($this->string('email')->toString()));
         $password = $this->string('password')->toString();
 
         $user = User::query()
             ->where('email', $email)
             ->first();
 
-        if (! $user || ! Hash::check($password, $user->password)) {
+        $passwordMatches = Hash::check(
+            $password,
+            $user?->password ?? self::DUMMY_PASSWORD_HASH,
+        );
+
+        if (! $user || ! $passwordMatches) {
             RateLimiter::hit($this->throttleKey());
 
             throw ValidationException::withMessages([
                 'email' => trans('auth.failed'),
             ]);
+        }
+
+        if (Hash::needsRehash($user->password)) {
+            $user->forceFill([
+                'password' => Hash::make($password),
+            ])->save();
         }
 
         if (! $user->hasApprovedStatus()) {
@@ -101,6 +118,6 @@ class LoginRequest extends FormRequest
      */
     public function throttleKey(): string
     {
-        return Str::transliterate(Str::lower($this->string('email')).'|'.$this->ip());
+        return Str::transliterate(Str::lower(trim($this->string('email')->toString())).'|'.$this->ip());
     }
 }

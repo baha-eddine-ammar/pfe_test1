@@ -7,6 +7,8 @@
 
         <title>{{ config('app.name', 'Server Room Supervision') }}</title>
 
+        @include('layouts.partials.brand-preloader-head')
+
         <script>
             (function () {
                 localStorage.removeItem('server-room-theme');
@@ -28,6 +30,8 @@
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
     <body class="auth-shell" x-data x-init="$store.theme.init()">
+        @include('layouts.partials.brand-preloader')
+
         <div class="mx-auto flex min-h-screen max-w-7xl items-center px-4 py-10 sm:px-6 lg:px-8">
             <div class="grid w-full gap-8 lg:grid-cols-[1.1fr_minmax(0,0.9fr)]">
                 <section class="auth-card auth-showcase hidden overflow-hidden px-8 py-10 lg:flex lg:flex-col lg:justify-between">

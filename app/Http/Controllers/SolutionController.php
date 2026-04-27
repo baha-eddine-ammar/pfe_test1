@@ -6,7 +6,9 @@ use App\Models\Problem;
 use App\Models\Solution;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class SolutionController extends Controller
@@ -47,9 +49,9 @@ class SolutionController extends Controller
                     $storedPath = $file->store('solution-attachments', 'local');
 
                     $solution->attachments()->create([
-                        'original_name' => $file->getClientOriginalName(),
+                        'original_name' => $this->safeAttachmentName($file),
                         'file_path' => $storedPath,
-                        'mime_type' => $file->getClientMimeType(),
+                        'mime_type' => $file->getMimeType(),
                         'file_size' => $file->getSize(),
                     ]);
                 }
@@ -59,5 +61,18 @@ class SolutionController extends Controller
         return redirect()
             ->route('problems.show', $problem)
             ->with('success', 'Solution submitted successfully.');
+    }
+
+    protected function safeAttachmentName(UploadedFile $file): string
+    {
+        $name = trim(str_replace(["\r", "\n"], ' ', basename((string) $file->getClientOriginalName())));
+        $name = preg_replace('/[^\w.\- ]+/u', '_', $name) ?: 'attachment';
+        $extension = trim((string) $file->getClientOriginalExtension());
+
+        if ($extension !== '' && ! str_contains($name, '.')) {
+            $name .= '.'.$extension;
+        }
+
+        return Str::limit($name, 180, '');
     }
 }

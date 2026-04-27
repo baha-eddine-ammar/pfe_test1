@@ -2,56 +2,37 @@
 |--------------------------------------------------------------------------
 | File Purpose
 |--------------------------------------------------------------------------
-| Reusable partial for one server card in the dashboard fleet grid.
+| Live dashboard panel for the dedicated Server Section.
 |
 | Data source:
-| Each $server array is prepared by ServerMonitoringService (or fallback demo
-| data in DashboardController when no servers exist yet).
+| The initial $server payload comes from DashboardController. The panel can
+| also refresh itself through the dashboard server-feed endpoint.
 |--------------------------------------------------------------------------
 --}}
 @php
-    // Maps server status values to badge color classes.
-    $statusClasses = [
-        'Online' => 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300',
-        'Warning' => 'bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300',
-        'Critical' => 'bg-rose-100 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300',
+    $feedUrl = $feedUrl ?? null;
+    $reactServerCardProps = [
+        'server' => $server,
+        'feedUrl' => $feedUrl,
     ];
-
-    // Maps metric color names to text/progress-bar styles.
-    $metricStyles = [
-        'cyan' => [
-            'text' => 'text-sky-600 dark:text-sky-300',
-            'bar' => 'from-sky-400 via-cyan-400 to-sky-500',
-        ],
-        'violet' => [
-            'text' => 'text-violet-600 dark:text-violet-300',
-            'bar' => 'from-violet-400 via-fuchsia-400 to-violet-500',
-        ],
-        'pink' => [
-            'text' => 'text-pink-600 dark:text-pink-300',
-            'bar' => 'from-pink-400 via-rose-400 to-pink-500',
-        ],
-        'emerald' => [
-            'text' => 'text-emerald-600 dark:text-emerald-300',
-            'bar' => 'from-emerald-400 via-lime-400 to-emerald-500',
-        ],
-    ];
-
-    // Final classes and summary text used by the card.
-    $statusClass = $statusClasses[$server['status']] ?? 'bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-300';
-    $serverNarrative = match ($server['status']) {
-        'Critical' => 'Immediate investigation recommended. Resource saturation or stale telemetry is pushing this node into a high-risk state.',
-        'Warning' => 'Load pressure is climbing. Keep this server under observation before it escalates to a critical threshold.',
-        default => 'Telemetry is flowing and the system is operating within expected parameters.',
-    };
 @endphp
 
-<article class="dashboard-panel dashboard-panel-hover group relative overflow-hidden px-6 py-6 sm:px-7">
-    {{--
-        Top section:
-        server identity, status, and "last seen" information.
-    --}}
+<div
+    data-react-server-live-card
+    data-props='{{ json_encode($reactServerCardProps, JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_TAG | JSON_HEX_QUOT) }}'
+></div>
+
+<article
+    x-data="liveServerPanel({
+        initialServer: @js($server),
+        feedUrl: @js($feedUrl),
+    })"
+    x-init="init()"
+    data-react-fallback
+    class="dashboard-panel dashboard-panel-hover group relative overflow-hidden px-6 py-6 sm:px-7"
+>
     <div class="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(70,95,255,0.12),_transparent_30%),radial-gradient(circle_at_bottom_left,_rgba(34,211,238,0.08),_transparent_28%)]"></div>
+
     <div class="relative z-[1]">
         <div class="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
             <div class="flex items-start gap-4">
@@ -65,68 +46,63 @@
 
                 <div>
                     <div class="flex flex-wrap items-center gap-3">
-                        <h3 class="font-display text-2xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white">{{ $server['name'] }}</h3>
-                        <span class="app-pill {{ $statusClass }}">{{ $server['status'] }}</span>
+                        <h3 class="font-display text-2xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white" x-text="server.name">{{ $server['name'] }}</h3>
+                        <span class="app-pill" :class="statusPillClass(server.status)" x-text="server.status">{{ $server['status'] }}</span>
+                        <span
+                            class="inline-flex items-center gap-2 rounded-full border border-brand-100 bg-brand-50 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-brand-600 dark:border-brand-500/20 dark:bg-brand-500/10 dark:text-brand-300"
+                            :class="refreshing ? 'shadow-lg shadow-brand-500/10 dark:shadow-brand-500/20' : ''"
+                        >
+                            <span class="dashboard-live-dot"></span>
+                            <span x-text="refreshing ? 'Refreshing' : 'Live'"></span>
+                        </span>
                     </div>
 
-                    <p class="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">
-                        {{ $server['identifier'] ?? 'Monitoring node' }}
-                    </p>
+                    <p class="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400" x-text="server.identifier || 'Monitoring node'">{{ $server['identifier'] ?? 'Monitoring node' }}</p>
                 </div>
             </div>
 
             <div class="dashboard-surface-glass rounded-[24px] px-4 py-3 text-right">
                 <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400 dark:text-slate-500">Last seen</p>
-                <p class="mt-2 font-display text-xl font-semibold text-slate-950 dark:text-white">{{ $server['lastSeenLabel'] ?? 'Live sample' }}</p>
+                <p class="mt-2 font-display text-xl font-semibold text-slate-950 dark:text-white" x-text="server.lastSeenLabel || 'Live sample'">{{ $server['lastSeenLabel'] ?? 'Live sample' }}</p>
             </div>
         </div>
 
-        {{--
-            Metric blocks:
-            CPU, RAM, disk, and network are rendered from the $server['metrics'] array.
-        --}}
-        <div class="mt-6 grid gap-4 sm:grid-cols-2">
-            @foreach ($server['metrics'] as $metric)
-                @php
-                    $metricStyle = $metricStyles[$metric['color']] ?? $metricStyles['cyan'];
-                @endphp
-
+        <div class="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            @foreach ($server['metrics'] as $index => $metric)
                 <div class="dashboard-surface-glass rounded-[24px] px-4 py-4">
                     <div class="flex items-center justify-between gap-4">
-                        <span class="text-sm font-medium text-slate-500 dark:text-slate-400">{{ $metric['label'] }}</span>
-                        <span class="text-sm font-semibold {{ $metricStyle['text'] }}">{{ $metric['value'] }}</span>
+                        <span class="text-sm font-medium text-slate-500 dark:text-slate-400" x-text="server.metrics[{{ $index }}]?.label || @js($metric['label'])">{{ $metric['label'] }}</span>
+                        <span class="text-sm font-semibold" :class="metricTextClass(server.metrics[{{ $index }}]?.color || @js($metric['color']))" x-text="server.metrics[{{ $index }}]?.value || @js($metric['value'])">{{ $metric['value'] }}</span>
                     </div>
 
                     <div class="mt-4 metric-progress-track h-2.5 bg-slate-100/80 dark:bg-white/[0.06]">
                         <div
-                            class="h-full rounded-full bg-gradient-to-r {{ $metricStyle['bar'] }}"
+                            class="h-full rounded-full bg-gradient-to-r"
+                            :class="metricBarClass(server.metrics[{{ $index }}]?.color || @js($metric['color']))"
+                            :style="progressStyle(server.metrics[{{ $index }}]?.progress ?? {{ $metric['progress'] }})"
                             style="width: {{ $metric['progress'] }}%;"
                         ></div>
                     </div>
 
                     <div class="mt-3 flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400 dark:text-slate-500">
-                        <span>Utilization</span>
-                        <span>{{ $metric['progress'] }}%</span>
+                        <span x-text="server.metrics[{{ $index }}]?.footerLabel || @js($metric['footerLabel'] ?? 'Utilization')">{{ $metric['footerLabel'] ?? 'Utilization' }}</span>
+                        <span x-text="server.metrics[{{ $index }}]?.progressLabel || @js($metric['progressLabel'] ?? ($metric['progress'].'%'))">{{ $metric['progressLabel'] ?? ($metric['progress'].'%') }}</span>
                     </div>
                 </div>
             @endforeach
         </div>
 
-        {{--
-            Operational note:
-            A short narrative based on the overall server status.
-        --}}
         <div class="dashboard-surface-glass mt-5 rounded-[24px] px-4 py-4">
             <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <p class="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400 dark:text-slate-500">Operational note</p>
-                    <p class="mt-2 max-w-2xl text-sm leading-7 text-slate-500 dark:text-slate-400">{{ $serverNarrative }}</p>
+                    <p class="mt-2 max-w-2xl text-sm leading-7 text-slate-500 dark:text-slate-400" x-text="server.narrative">{{ $server['narrative'] ?? 'Telemetry is flowing and the system is operating within expected parameters.' }}</p>
                 </div>
 
                 <div class="flex items-center gap-2">
-                    @foreach (array_slice($server['metrics'], 0, 3) as $metric)
+                    @foreach (array_slice($server['metrics'], 0, 3) as $index => $metric)
                         <span class="inline-flex h-2.5 w-10 overflow-hidden rounded-full bg-slate-200 dark:bg-white/10">
-                            <span class="h-full rounded-full bg-slate-900 dark:bg-white" style="width: {{ $metric['progress'] }}%;"></span>
+                            <span class="h-full rounded-full bg-slate-900 dark:bg-white" :style="progressStyle(server.metrics[{{ $index }}]?.progress ?? {{ $metric['progress'] }})" style="width: {{ $metric['progress'] }}%;"></span>
                         </span>
                     @endforeach
                 </div>

@@ -2,9 +2,11 @@
 
 namespace Tests\Feature\Maintenance;
 
+use App\Events\MaintenanceTaskChanged;
 use App\Models\MaintenanceTask;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -151,6 +153,43 @@ class MaintenanceTaskModuleTest extends TestCase
         ]);
     }
 
+    public function test_status_updates_broadcast_maintenance_realtime_event(): void
+    {
+        Event::fake([MaintenanceTaskChanged::class]);
+
+        $departmentHead = User::factory()->create([
+            'role' => 'department_head',
+            'status' => 'approved',
+            'is_approved' => true,
+        ]);
+
+        $staff = User::factory()->create([
+            'role' => 'staff',
+            'status' => 'approved',
+            'is_approved' => true,
+        ]);
+
+        $task = MaintenanceTask::query()->create([
+            'server_room' => 'Room Realtime',
+            'maintenance_date' => now()->addDay(),
+            'fix_description' => 'Verify realtime task updates.',
+            'priority' => MaintenanceTask::PRIORITY_MEDIUM,
+            'status' => MaintenanceTask::STATUS_ASSIGNED,
+            'assigned_to_user_id' => $staff->id,
+            'created_by_user_id' => $departmentHead->id,
+        ]);
+
+        $this->actingAs($staff)->patch(route('maintenance.update-status', $task), [
+            'status' => MaintenanceTask::STATUS_IN_PROGRESS,
+        ]);
+
+        Event::assertDispatched(MaintenanceTaskChanged::class, function (MaintenanceTaskChanged $event) use ($task, $staff): bool {
+            return $event->action === 'status_updated'
+                && $event->task['id'] === $task->id
+                && in_array($staff->id, $event->userIds, true);
+        });
+    }
+
     public function test_department_head_can_delete_a_task(): void
     {
         $departmentHead = User::factory()->create([
@@ -181,5 +220,34 @@ class MaintenanceTaskModuleTest extends TestCase
         $this->assertDatabaseMissing('maintenance_tasks', [
             'id' => $task->id,
         ]);
+    }
+
+    public function test_pending_or_non_staff_users_can_not_be_selected_as_assignees(): void
+    {
+        $departmentHead = User::factory()->create([
+            'role' => 'department_head',
+            'status' => 'approved',
+            'is_approved' => true,
+        ]);
+
+        $pendingUser = User::factory()->create([
+            'role' => 'staff',
+            'status' => 'pending',
+            'is_approved' => false,
+        ]);
+
+        $response = $this->actingAs($departmentHead)
+            ->from(route('maintenance.index'))
+            ->post(route('maintenance.store'), [
+                'server_room' => 'Server Room Alpha',
+                'maintenance_date' => now()->addDay()->format('Y-m-d H:i:s'),
+                'fix_description' => 'Replace cooling fan and verify rack airflow stability.',
+                'priority' => MaintenanceTask::PRIORITY_URGENT,
+                'assigned_to_user_id' => $pendingUser->id,
+            ]);
+
+        $response->assertRedirect(route('maintenance.index'));
+        $response->assertSessionHasErrors('assigned_to_user_id');
+        $this->assertDatabaseCount('maintenance_tasks', 0);
     }
 }

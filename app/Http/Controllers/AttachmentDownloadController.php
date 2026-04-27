@@ -15,7 +15,8 @@ class AttachmentDownloadController extends Controller
         return $this->download(
             $problemAttachment->file_path,
             $problemAttachment->original_name,
-            $problemAttachment->mime_type
+            $problemAttachment->mime_type,
+            'problem-attachments/'
         );
     }
 
@@ -24,22 +25,31 @@ class AttachmentDownloadController extends Controller
         return $this->download(
             $solutionAttachment->file_path,
             $solutionAttachment->original_name,
-            $solutionAttachment->mime_type
+            $solutionAttachment->mime_type,
+            'solution-attachments/'
         );
     }
 
-    protected function download(string $path, string $originalName, ?string $mimeType = null): StreamedResponse
+    protected function download(string $path, string $originalName, ?string $mimeType = null, string $expectedPrefix = ''): StreamedResponse
     {
-        foreach (['local', 'public'] as $disk) {
-            if (! Storage::disk($disk)->exists($path)) {
-                continue;
-            }
+        $normalizedPath = ltrim(str_replace('\\', '/', $path), '/');
+        $downloadName = trim(str_replace(["\r", "\n"], ' ', basename($originalName)));
 
-            $headers = $mimeType ? ['Content-Type' => $mimeType] : [];
-
-            return Storage::disk($disk)->download($path, $originalName, $headers);
+        if ($normalizedPath === '' || ($expectedPrefix !== '' && ! str_starts_with($normalizedPath, $expectedPrefix))) {
+            abort(Response::HTTP_NOT_FOUND);
         }
 
-        abort(Response::HTTP_NOT_FOUND);
+        if (! Storage::disk('local')->exists($normalizedPath)) {
+            abort(Response::HTTP_NOT_FOUND);
+        }
+
+        $resolvedMimeType = $mimeType ?: Storage::disk('local')->mimeType($normalizedPath);
+        $headers = $resolvedMimeType ? ['Content-Type' => $resolvedMimeType] : [];
+
+        return Storage::disk('local')->download(
+            $normalizedPath,
+            $downloadName !== '' ? $downloadName : 'attachment',
+            $headers
+        );
     }
 }

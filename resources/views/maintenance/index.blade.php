@@ -49,7 +49,6 @@
         x-data="maintenanceWorkspace({
             assignees: @js($assigneeDirectory),
             selectedAssigneeId: @js((string) old('assigned_to_user_id', '')),
-            autoRefreshEnabled: @js($tasks->count() > 0),
         })"
         x-init="init()"
         class="maintenance-shell relative isolate mx-auto max-w-[1600px] space-y-6 pb-10"
@@ -283,90 +282,6 @@
 
                 <div data-maintenance-board class="space-y-6">
                     {{--
-                        Filter panel:
-                        Sends query-string filters back to the same index route.
-                        The controller reads those filters and rebuilds the task list.
-                    --}}
-                    <article class="maintenance-panel px-6 py-6 sm:px-7">
-                        <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-                            <div>
-                                <p class="app-section-title">Filters</p>
-                                <h2 class="mt-2 font-display text-2xl font-semibold text-slate-950 dark:text-white">Task filters</h2>
-                            </div>
-                            <a href="{{ route('maintenance.index') }}" class="app-button-secondary px-4 py-2.5">
-                                Reset filters
-                            </a>
-                        </div>
-
-                        <form method="GET" action="{{ route('maintenance.index') }}" class="mt-6 grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
-                            <div class="2xl:col-span-3">
-                                <label for="search" class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">Search</label>
-                                <input
-                                    type="text"
-                                    id="search"
-                                    name="search"
-                                    class="app-input"
-                                    value="{{ $filters['search'] }}"
-                                    placeholder="Search by room or maintenance description"
-                                >
-                            </div>
-
-                            <div>
-                                <label for="assigned_to_user_id" class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">Assigned user</label>
-                                <select id="assigned_to_user_id" name="assigned_to_user_id" class="app-select">
-                                    <option value="">All users</option>
-                                    @foreach ($itStaffUsers as $staffUser)
-                                        <option value="{{ $staffUser->id }}" @selected($filters['assigned_to_user_id'] === (string) $staffUser->id)>
-                                            {{ $staffUser->name }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
-
-                            <div>
-                                <label for="priority_filter" class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">Priority</label>
-                                <select id="priority_filter" name="priority" class="app-select">
-                                    <option value="">All priorities</option>
-                                    @foreach ($priorityOptions as $priority)
-                                        <option value="{{ $priority }}" @selected($filters['priority'] === $priority)>{{ str($priority)->title() }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-
-                            <div>
-                                <label for="status_filter" class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">Status</label>
-                                <select id="status_filter" name="status" class="app-select">
-                                    <option value="">All statuses</option>
-                                    @foreach ($statusOptions as $status)
-                                        <option value="{{ $status }}" @selected($filters['status'] === $status)>{{ str($status)->replace('_', ' ')->title() }}</option>
-                                    @endforeach
-                                </select>
-                            </div>
-
-                            <div>
-                                <label for="date_from" class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">Date from</label>
-                                <input type="date" id="date_from" name="date_from" class="app-input" value="{{ $filters['date_from'] }}">
-                            </div>
-
-                            <div>
-                                <label for="date_to" class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">Date to</label>
-                                <input type="date" id="date_to" name="date_to" class="app-input" value="{{ $filters['date_to'] }}">
-                            </div>
-
-                            <div class="flex items-center gap-3">
-                                <input id="overdue" type="checkbox" name="overdue" value="1" class="app-checkbox" @checked($filters['overdue'] === '1')>
-                                <label for="overdue" class="text-sm font-medium text-slate-700 dark:text-slate-300">Show overdue only</label>
-                            </div>
-
-                            <div class="lg:col-span-2 2xl:col-span-3 flex justify-end">
-                                <button type="submit" class="app-button-primary">
-                                    Apply Filters
-                                </button>
-                            </div>
-                        </form>
-                    </article>
-
-                    {{--
                         Task registry:
                         Department heads see all visible tasks in a table.
                         Badge components render priority and status consistently.
@@ -473,63 +388,6 @@
                 They only see filters plus cards for tasks assigned to them.
             --}}
             <section data-maintenance-board class="space-y-6">
-                <article class="maintenance-panel px-6 py-6 sm:px-7">
-                    <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-                        <div>
-                            <p class="app-section-title">Filters</p>
-                            <h2 class="mt-2 font-display text-2xl font-semibold text-slate-950 dark:text-white">Refine my queue</h2>
-                        </div>
-                        <a href="{{ route('maintenance.index') }}" class="app-button-secondary px-4 py-2.5">
-                            Reset filters
-                        </a>
-                    </div>
-
-                    <form method="GET" action="{{ route('maintenance.index') }}" class="mt-6 grid gap-4 lg:grid-cols-2 xl:grid-cols-5">
-                        <div class="xl:col-span-2">
-                            <label for="search" class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">Search</label>
-                            <input
-                                type="text"
-                                id="search"
-                                name="search"
-                                class="app-input"
-                                value="{{ $filters['search'] }}"
-                                placeholder="Search by room or description"
-                            >
-                        </div>
-
-                        <div>
-                            <label for="priority_filter_staff" class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">Priority</label>
-                            <select id="priority_filter_staff" name="priority" class="app-select">
-                                <option value="">All priorities</option>
-                                @foreach ($priorityOptions as $priority)
-                                    <option value="{{ $priority }}" @selected($filters['priority'] === $priority)>{{ str($priority)->title() }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-
-                        <div>
-                            <label for="status_filter_staff" class="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">Status</label>
-                            <select id="status_filter_staff" name="status" class="app-select">
-                                <option value="">All statuses</option>
-                                @foreach ($statusOptions as $status)
-                                    <option value="{{ $status }}" @selected($filters['status'] === $status)>{{ str($status)->replace('_', ' ')->title() }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-
-                        <div class="flex items-center gap-3 pt-7">
-                            <input id="overdue_staff" type="checkbox" name="overdue" value="1" class="app-checkbox" @checked($filters['overdue'] === '1')>
-                            <label for="overdue_staff" class="text-sm font-medium text-slate-700 dark:text-slate-300">Overdue only</label>
-                        </div>
-
-                        <div class="xl:col-span-5 flex justify-end">
-                            <button type="submit" class="app-button-primary">
-                                Apply Filters
-                            </button>
-                        </div>
-                    </form>
-                </article>
-
                 @if ($tasks->isEmpty())
                     <article class="maintenance-panel px-6 py-14 text-center sm:px-7">
                         <p class="font-display text-2xl font-semibold text-slate-950 dark:text-white">No assigned maintenance tasks right now</p>
@@ -565,7 +423,7 @@
          *
          * What it does:
          * - searchable assignee dropdown for the creator form
-         * - optional periodic refresh of the maintenance stats/board sections
+         * - WebSocket-triggered refresh of the maintenance stats/board sections
          * - last refresh timestamp display
          */
         window.maintenanceWorkspace = window.maintenanceWorkspace || function (config) {
@@ -574,14 +432,12 @@
                 selectedAssigneeId: config.selectedAssigneeId || '',
                 assigneeQuery: '',
                 assigneeMenuOpen: false,
-                autoRefreshEnabled: Boolean(config.autoRefreshEnabled),
-                refreshHandle: null,
                 lastRefreshLabel: new Date().toLocaleTimeString([], {
                     hour: '2-digit',
                     minute: '2-digit',
                     second: '2-digit',
                 }),
-                // Initializes the assignee field and the optional auto-refresh timer.
+                // Initializes the assignee field and realtime refresh listener.
                 init() {
                     if (this.selectedAssigneeId) {
                         const selected = this.assignees.find((assignee) => String(assignee.id) === String(this.selectedAssigneeId));
@@ -591,11 +447,9 @@
                         }
                     }
 
-                    if (this.autoRefreshEnabled) {
-                        this.refreshHandle = window.setInterval(() => {
-                            this.refreshWorkspace();
-                        }, 30000);
-                    }
+                    window.addEventListener('maintenance-task-changed', () => {
+                        this.refreshWorkspace();
+                    });
                 },
                 // Filters the assignee directory by name, email, or department.
                 filteredAssignees() {
