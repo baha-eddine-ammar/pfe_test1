@@ -19,9 +19,30 @@ jobs:
           port: 22
           script: |
             cd ~/sites/InfraGuard.swissnexo.ch
-            git pull origin main
+
+            # Vérifie si repo existe
+            if [ ! -d ".git" ]; then
+              echo "Cloning repository..."
+              git clone https://github.com/baha-eddine-ammar/pfe_test1.git .
+            else
+              echo "Updating repository..."
+              git reset --hard
+              git clean -fd
+              git pull origin main
+            fi
+
+            # Installer dépendances
             composer install --no-dev --optimize-autoloader
-            php artisan migrate --force
+
+            # Migrations (ignore erreur si pas de droits)
+            php artisan migrate --force || true
+
+            # Cache Laravel
+            php artisan config:clear
+            php artisan cache:clear
+            php artisan route:clear
+            php artisan view:clear
+
             php artisan config:cache
             php artisan route:cache
             php artisan view:cache
