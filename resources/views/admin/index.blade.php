@@ -15,6 +15,7 @@
         </div>
     </x-slot>
 
+    
     <section class="mx-auto max-w-7xl">
         <div class="grid gap-5 lg:grid-cols-3">
             <div class="app-card px-6 py-6">
