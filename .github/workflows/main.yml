@@ -10,6 +10,27 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1. Checkout code
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # 2. Installer Node (pour Vite)
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      # 3. Build Vite
+      - name: Install & Build Vite
+        run: |
+          npm install
+          npm run build
+
+      # 4. Installer PHP deps (optionnel mais propre)
+      - name: Install Composer deps
+        run: composer install --no-dev --optimize-autoloader
+
+      # 5. Deploy via SSH
       - name: Deploy on Infomaniak
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -20,28 +41,16 @@ jobs:
           script: |
             cd ~/sites/InfraGuard.swissnexo.ch
 
-            # Vérifie si repo existe
-            if [ ! -d ".git" ]; then
-              echo "Cloning repository..."
-              git clone https://github.com/baha-eddine-ammar/pfe_test1.git .
-            else
-              echo "Updating repository..."
-              git reset --hard
-              git clean -fd
-              git pull origin main
-            fi
+            git reset --hard
+            git clean -fd
+            git pull origin main
 
-            # Installer dépendances
             composer install --no-dev --optimize-autoloader
 
-            # Migrations (ignore erreur si pas de droits)
             php artisan migrate --force || true
 
-            # Cache Laravel
             php artisan config:clear
             php artisan cache:clear
-            php artisan route:clear
-            php artisan view:clear
 
             php artisan config:cache
             php artisan route:cache
