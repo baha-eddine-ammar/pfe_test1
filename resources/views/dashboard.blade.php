@@ -191,7 +191,7 @@
             <div>
                 <p class="app-section-title">Realtime monitoring</p>
                 <h1 class="mt-2 font-display text-3xl font-semibold tracking-[-0.04em] text-slate-950 dark:text-white sm:text-4xl">
-                    Server room dashboard
+                    Server room 1 dashboard
                 </h1>
                 <p class="mt-3 max-w-3xl text-sm leading-7 text-slate-500 dark:text-slate-400">
                     Temperature and humidity are now the first thing operators see, with the main telemetry graph directly underneath.
