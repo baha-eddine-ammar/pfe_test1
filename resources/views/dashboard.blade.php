@@ -162,7 +162,7 @@
 
     $reactDashboardChartProps = [
         'trend' => $trendData,
-        'feedUrl' => route('dashboard.trend'),
+        'feedUrl' => route('dashboard.telemetry'),
     ];
 @endphp
 
@@ -175,10 +175,11 @@
         x-data="serverRoomDashboard(@js([
             'trend' => $trendData,
             'sensorStates' => $statusCounts,
-            'feedUrl' => route('dashboard.trend'),
+            'feedUrl' => route('dashboard.telemetry'),
         ]))"
         x-init="init()"
         data-dashboard-page
+        data-dashboard-telemetry-polling="js"
         class="dashboard-shell relative isolate mx-auto max-w-[1600px] space-y-6 pb-10 sm:space-y-7"
     >
         <div class="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[34rem] bg-[radial-gradient(circle_at_top_left,_rgba(70,95,255,0.22),_transparent_32%),radial-gradient(circle_at_top_right,_rgba(14,165,233,0.16),_transparent_28%),linear-gradient(180deg,_rgba(255,255,255,0.96),_rgba(248,250,252,0))] blur-2xl dark:bg-[radial-gradient(circle_at_top_left,_rgba(70,95,255,0.2),_transparent_28%),radial-gradient(circle_at_top_right,_rgba(34,211,238,0.14),_transparent_24%),linear-gradient(180deg,_rgba(15,23,42,0.66),_rgba(2,6,23,0))]"></div>
@@ -677,6 +678,7 @@
                 charts: {},
                 isSyncing: false,
                 lastRefreshLabel: config.trend.lastUpdatedLabel || 'Waiting for ESP32 readings',
+                pollingHandle: null,
                 chartTheme() {
                     const dark = document.documentElement.classList.contains('dark');
 
@@ -1336,12 +1338,52 @@
                     this.updateChartsWithTrend();
                     this.lastRefreshLabel = this.trend.lastUpdatedLabel || 'Waiting for ESP32 readings';
                 },
+                async pollTelemetry() {
+                    if (!this.feedUrl) {
+                        return;
+                    }
+
+                    this.isSyncing = true;
+
+                    try {
+                        const response = await fetch(this.feedUrl, {
+                            headers: {
+                                Accept: 'application/json',
+                                'X-Requested-With': 'XMLHttpRequest',
+                            },
+                            credentials: 'same-origin',
+                        });
+
+                        if (!response.ok) {
+                            return;
+                        }
+
+                        const trend = await response.json();
+                        window.dispatchEvent(new CustomEvent('sensor-telemetry-updated', {
+                            detail: { trend },
+                        }));
+                    } catch (error) {
+                        console.debug('Dashboard telemetry poll failed.', error);
+                    } finally {
+                        this.isSyncing = false;
+                    }
+                },
+                startTelemetryPolling() {
+                    if (!this.feedUrl || this.pollingHandle) {
+                        return;
+                    }
+
+                    this.pollingHandle = window.setInterval(() => {
+                        this.pollTelemetry();
+                    }, 3000);
+                },
                 init() {
                     this.renderCharts();
                     window.addEventListener('theme-changed', () => this.refreshChartTheme());
                     window.addEventListener('sensor-telemetry-updated', (event) => {
                         this.applyRealtimeTrend(event.detail);
                     });
+                    this.startTelemetryPolling();
                 },
             };
         };
