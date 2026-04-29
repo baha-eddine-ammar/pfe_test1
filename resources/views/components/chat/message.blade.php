@@ -58,7 +58,7 @@
                     <button
                         type="button"
                         data-chat-delete-message="{{ $message['id'] }}"
-                        data-chat-delete-url="{{ route('chat.messages.destroy', $message['id']) }}"
+                        data-chat-delete-url="{{ url('/chat/messages/'.$message['id']) }}"
                         class="chat-delete-message-button"
                         aria-label="Delete message"
                         title="Delete message"
