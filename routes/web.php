@@ -82,6 +82,10 @@ Route::get('/dashboard/trend-feed', [DashboardController::class, 'trendFeed'])
     ->middleware(['auth', 'verified'])
     ->name('dashboard.trend');
 
+Route::get('/dashboard/telemetry', [DashboardController::class, 'trendFeed'])
+    ->middleware(['auth', 'verified'])
+    ->name('dashboard.telemetry');
+
 // Department head administration:
 // Only approved department heads can access these routes because they manage
 // users and higher-level administration.

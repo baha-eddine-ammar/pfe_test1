@@ -20,6 +20,9 @@ const bootRealtime = () => {
     const reverbHost = import.meta.env.VITE_REVERB_HOST || window.location.hostname;
     const reverbPort = Number(import.meta.env.VITE_REVERB_PORT || 8080);
     const reverbScheme = import.meta.env.VITE_REVERB_SCHEME || (window.location.protocol === 'https:' ? 'https' : 'http');
+    const useDashboardJsPolling = Boolean(
+        document.querySelector('[data-dashboard-page][data-dashboard-telemetry-polling="js"]')
+    );
 
     if (authUserId === '' || !reverbKey || window.Echo) {
         return;
@@ -56,10 +59,12 @@ const bootRealtime = () => {
             dispatchRealtimeEvent('maintenance-task-changed', payload);
         });
 
-    window.Echo.private('dashboard.telemetry')
-        .listen('.sensor.telemetry.updated', (payload) => {
-            dispatchRealtimeEvent('sensor-telemetry-updated', payload);
-        });
+    if (!useDashboardJsPolling) {
+        window.Echo.private('dashboard.telemetry')
+            .listen('.sensor.telemetry.updated', (payload) => {
+                dispatchRealtimeEvent('sensor-telemetry-updated', payload);
+            });
+    }
 
     window.Echo.private('servers.overview')
         .listen('.server.metric.stored', (payload) => {
