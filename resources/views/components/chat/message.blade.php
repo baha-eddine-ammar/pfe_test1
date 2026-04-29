@@ -38,8 +38,8 @@
         - safely rendered body
         - badges such as role and "Mentioned you"
     --}}
-    <div class="flex max-w-[88%] items-end gap-3 {{ $stackAlignment }}">
-        <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-sm font-semibold {{ $avatarClasses }}">
+    <div class="flex max-w-[82%] items-end gap-2 {{ $stackAlignment }}">
+        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-xs font-semibold {{ $avatarClasses }}">
             {{ $message['author']['initials'] }}
         </div>
 
@@ -54,13 +54,30 @@
                 <span class="text-[11px] font-medium text-slate-400 dark:text-slate-500">
                     {{ $message['created_at_label'] }}
                 </span>
+                @if ($message['is_mine'])
+                    <button
+                        type="button"
+                        data-chat-delete-message="{{ $message['id'] }}"
+                        data-chat-delete-url="{{ route('chat.messages.destroy', $message['id']) }}"
+                        class="chat-delete-message-button"
+                        aria-label="Delete message"
+                        title="Delete message"
+                    >
+                        <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+                            <path d="M7 5V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v1" stroke-linecap="round"></path>
+                            <path d="M4 5h12" stroke-linecap="round"></path>
+                            <path d="M6 8l.5 8h7L14 8" stroke-linecap="round" stroke-linejoin="round"></path>
+                            <path d="M9 9.5v4M11 9.5v4" stroke-linecap="round"></path>
+                        </svg>
+                    </button>
+                @endif
             </div>
 
-            <div class="mt-3 break-words text-sm leading-7 text-slate-600 dark:text-slate-300">
+            <div class="mt-2 break-words text-sm leading-6 text-slate-600 dark:text-slate-300">
                 {!! $message['rendered_body'] !!}
             </div>
 
-            <div class="mt-3 flex flex-wrap items-center gap-2">
+            <div class="mt-2 flex flex-wrap items-center gap-2">
                 <span class="chat-meta-chip">
                     {{ $message['author']['role_label'] }}
                 </span>

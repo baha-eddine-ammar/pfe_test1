@@ -13,11 +13,13 @@
 | - loading the main chat page
 | - syncing fresh messages/presence updates after realtime events
 | - storing new messages
+| - deleting a user's own messages
 |
 | When this file is used:
 | - GET /chat
 | - GET /chat/messages
 | - POST /chat
+| - DELETE /chat/messages/{message}
 |
 | FILES TO READ (IN ORDER):
 | 1. routes/web.php
@@ -153,6 +155,19 @@ class ChatController extends Controller
         return redirect()
             ->route('chat.index')
             ->with('success', 'Message sent successfully.');
+    }
+
+    public function destroy(Message $message): JsonResponse
+    {
+        $this->authorize('delete', $message);
+
+        $messageId = $message->id;
+        $message->delete();
+
+        return response()->json([
+            'message' => 'Message deleted successfully.',
+            'message_id' => $messageId,
+        ]);
     }
 
     // Validates optional query-string filters used by the chat UI.

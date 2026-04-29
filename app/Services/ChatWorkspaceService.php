@@ -37,7 +37,6 @@
 
 namespace App\Services;
 
-use App\Events\ChatMessageCreated;
 use App\Models\Message;
 use App\Models\User;
 use Carbon\Carbon;
@@ -133,7 +132,6 @@ class ChatWorkspaceService
         $message->load('user');
 
         $this->notifyMentionedUsers($message, $sender);
-        ChatMessageCreated::dispatch($message);
 
         return $message;
     }

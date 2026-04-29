@@ -677,11 +677,11 @@
     }
 
     .chat-empty-state {
-        @apply flex min-h-[420px] flex-col items-center justify-center rounded-[28px] border border-dashed border-slate-200/80 px-6 py-10 dark:border-white/10;
+        @apply flex min-h-[320px] flex-col items-center justify-center rounded-[24px] border border-dashed border-slate-200/80 px-5 py-8 dark:border-white/10;
     }
 
     .chat-message-bubble {
-        @apply rounded-[26px] border px-5 py-4;
+        @apply rounded-[22px] border px-4 py-3;
         box-shadow:
             0 12px 28px rgba(15, 23, 42, 0.06),
             inset 0 1px 0 rgba(255, 255, 255, 0.72);
@@ -711,7 +711,7 @@
     }
 
     .chat-meta-chip {
-        @apply inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:bg-white/[0.06] dark:text-slate-400;
+        @apply inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500 dark:bg-white/[0.06] dark:text-slate-400;
     }
 
     .chat-meta-chip--mention {
@@ -727,11 +727,11 @@
     }
 
     .chat-composer-wrap {
-        @apply m-4 mt-0 rounded-[28px] p-5 sm:m-6 sm:mt-0;
+        @apply m-3 mt-0 rounded-[24px] p-3 sm:m-4 sm:mt-0;
     }
 
     .chat-composer-input {
-        @apply app-input min-h-[150px] resize-none rounded-[24px] px-5 py-4;
+        @apply app-input min-h-[86px] resize-none rounded-[20px] px-4 py-3;
     }
 
     .chat-mention-menu {
@@ -746,6 +746,10 @@
         @apply bg-brand-50/90 dark:bg-brand-500/10;
     }
 
+    .chat-delete-message-button {
+        @apply inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-300 transition hover:bg-red-50 hover:text-red-500 focus:outline-none focus:ring-4 focus:ring-red-500/10 disabled:cursor-not-allowed disabled:opacity-50 dark:text-slate-600 dark:hover:bg-red-500/10 dark:hover:text-red-300;
+    }
+
     .chat-mention {
         @apply rounded-md bg-brand-50 px-1.5 py-0.5 font-semibold text-brand-600 dark:bg-brand-500/10 dark:text-brand-300;
     }
@@ -756,6 +760,14 @@
 
     .chat-message-flash {
         animation: chat-message-flash 1.35s ease-out;
+    }
+
+    .chat-message-new {
+        animation: chat-message-enter 220ms ease-out both;
+    }
+
+    .chat-message-removing {
+        animation: chat-message-exit 180ms ease-in forwards;
     }
 
     .app-form-section {
@@ -906,6 +918,25 @@
     }
 }
 
+@keyframes chat-message-enter {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes chat-message-exit {
+    to {
+        opacity: 0;
+        transform: translateY(-6px);
+    }
+}
+
 @media (prefers-reduced-motion: reduce) {
     .dashboard-panel-hover,
     .dashboard-live-dot,
@@ -917,7 +948,9 @@
     .calendar-pulse-dot::after,
     .chat-user-item,
     .chat-message-bubble,
-    .chat-message-flash {
+    .chat-message-flash,
+    .chat-message-new,
+    .chat-message-removing {
         animation: none !important;
         transition: none !important;
     }

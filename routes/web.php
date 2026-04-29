@@ -124,6 +124,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/chat', [ChatController::class, 'index'])->name('chat.index');
     Route::post('/chat', [ChatController::class, 'store'])->middleware('throttle:chat-messages')->name('chat.store');
     Route::get('/chat/messages', [ChatController::class, 'messages'])->middleware('throttle:chat-sync')->name('chat.messages');
+    Route::delete('/chat/messages/{message}', [ChatController::class, 'destroy'])->name('chat.messages.destroy');
 
     // AI chat routes
     Route::get('/ai-chat', [AIChatController::class, 'index'])->name('ai-chat.index');
