@@ -44,11 +44,6 @@ const bootRealtime = () => {
         },
     });
 
-    window.Echo.private('ops.chat')
-        .listen('.chat.message.created', (payload) => {
-            dispatchRealtimeEvent('chat-message-created', payload);
-        });
-
     window.Echo.private(`users.${authUserId}.notifications`)
         .listen('.notification.created', (payload) => {
             dispatchRealtimeEvent('user-notification-created', payload);

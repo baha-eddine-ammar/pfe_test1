@@ -5,7 +5,7 @@
 | This file defines the Alpine component used by the Team Chat page.
 |
 | What it does:
-| - refreshes messages from WebSocket events and visibility changes
+| - refreshes messages with lightweight JavaScript polling and visibility changes
 | - syncs filters with the URL
 | - manages the @mention dropdown
 | - sends new messages with AJAX
@@ -47,7 +47,11 @@ export default (config = {}) => ({
     successMessage: '',
     filterHandle: null,
     successHandle: null,
-    echoBound: false,
+    pollingHandle: null,
+    pollingDelay: 2500,
+    syncInProgress: false,
+    deletingMessages: {},
+    visibilityHandler: null,
     mentionMenuOpen: false,
     mentionIndex: 0,
     mentionQuery: '',
@@ -69,7 +73,7 @@ export default (config = {}) => ({
         });
 
         this.startVisibilitySync();
-        this.startRealtime();
+        this.startPolling();
 
         if (this.highlightMessageId > 0) {
             this.$nextTick(() => {
@@ -77,24 +81,51 @@ export default (config = {}) => ({
             });
         }
     },
-    // Re-syncs once when the tab becomes visible in case the socket was offline.
+    // Pauses polling while hidden and catches up as soon as the tab is visible.
     startVisibilitySync() {
-        document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible') {
-                this.refreshSnapshot(false);
-            }
-        });
-    },
-    startRealtime() {
-        if (this.echoBound) {
+        if (this.visibilityHandler) {
             return;
         }
 
-        window.addEventListener('chat-message-created', () => {
-            this.refreshMessages(false, this.isNearBottom());
-        });
+        this.visibilityHandler = () => {
+            if (document.visibilityState === 'visible') {
+                this.refreshMessages(false, this.isNearBottom());
+                this.startPolling();
+                return;
+            }
 
-        this.echoBound = true;
+            this.stopPolling();
+        };
+
+        document.addEventListener('visibilitychange', this.visibilityHandler);
+    },
+    startPolling() {
+        if (this.pollingHandle || !this.messagesUrl || document.visibilityState === 'hidden') {
+            return;
+        }
+
+        this.pollingHandle = window.setInterval(() => {
+            if (!this.canAppend()) {
+                return;
+            }
+
+            this.refreshMessages(false, false);
+        }, this.pollingDelay);
+    },
+    stopPolling() {
+        if (!this.pollingHandle) {
+            return;
+        }
+
+        window.clearInterval(this.pollingHandle);
+        this.pollingHandle = null;
+    },
+    destroy() {
+        this.stopPolling();
+
+        if (this.visibilityHandler) {
+            document.removeEventListener('visibilitychange', this.visibilityHandler);
+        }
     },
     // Focuses the composer again after successful sends.
     restoreComposerFocus() {
@@ -153,7 +184,8 @@ export default (config = {}) => ({
         }
 
         if (!forceSnapshot && this.canAppend()) {
-            params.set('after_id', String(this.summary.last_message_id || 0));
+            params.set('after_id', String(this.latestRenderedMessageId()));
+            params.set('limit', '20');
         }
 
         return params;
@@ -162,8 +194,25 @@ export default (config = {}) => ({
     canAppend() {
         return this.searchTerm.trim() === ''
             && this.senderFilter === ''
-            && !this.mentionsOnly
-            && Number(this.summary.last_message_id || 0) > 0;
+            && !this.mentionsOnly;
+    },
+    renderedMessageIds() {
+        const messages = this.$refs.messageStream?.querySelectorAll('[data-message-id]') || [];
+
+        return new Set(
+            Array.from(messages)
+                .map((message) => Number(message.dataset.messageId || 0))
+                .filter((messageId) => messageId > 0)
+        );
+    },
+    latestRenderedMessageId() {
+        const renderedIds = Array.from(this.renderedMessageIds());
+
+        if (renderedIds.length === 0) {
+            return 0;
+        }
+
+        return Math.max(...renderedIds);
     },
     // Used so new messages do not yank the screen while the user is reading older content.
     isNearBottom() {
@@ -251,21 +300,56 @@ export default (config = {}) => ({
 
         this.$refs.userDirectory.innerHTML = html;
     },
-    // Partial DOM replacement for the message list.
+    // Partial DOM replacement or append for the message list.
     replaceMessages(html, append = false, scrollAfter = false) {
         if (!this.$refs.messageStream) {
-            return;
+            return 0;
         }
 
+        let insertedCount = 0;
+
         if (append && html.trim() !== '') {
-            this.$refs.messageStream.insertAdjacentHTML('beforeend', html);
+            insertedCount = this.appendNewMessages(html);
         } else if (!append) {
             this.$refs.messageStream.innerHTML = html;
+            insertedCount = this.$refs.messageStream.querySelectorAll('[data-message-id]').length;
         }
 
         if (scrollAfter) {
             this.scrollToBottom(true);
         }
+
+        return insertedCount;
+    },
+    appendNewMessages(html) {
+        const template = document.createElement('template');
+        const knownIds = this.renderedMessageIds();
+        let insertedCount = 0;
+
+        template.innerHTML = html.trim();
+
+        Array.from(template.content.children).forEach((node) => {
+            const messageElement = node.matches?.('[data-message-id]')
+                ? node
+                : node.querySelector?.('[data-message-id]');
+            const messageId = Number(messageElement?.dataset?.messageId || 0);
+
+            if (messageId <= 0 || knownIds.has(messageId)) {
+                return;
+            }
+
+            knownIds.add(messageId);
+            messageElement.classList.add('chat-message-new');
+
+            if (insertedCount === 0) {
+                this.$refs.messageStream.querySelector('.chat-empty-state')?.remove();
+            }
+
+            this.$refs.messageStream.appendChild(node);
+            insertedCount += 1;
+        });
+
+        return insertedCount;
     },
     // Applies the fresh summary payload returned by the backend.
     applySummary(summary) {
@@ -286,7 +370,13 @@ export default (config = {}) => ({
             return;
         }
 
-        const shouldScroll = forceScroll || this.isNearBottom();
+        if (this.syncInProgress && !forceSnapshot) {
+            return;
+        }
+
+        this.syncInProgress = true;
+
+        const wasNearBottom = this.isNearBottom();
         const query = this.buildQuery(forceSnapshot).toString();
 
         try {
@@ -302,6 +392,11 @@ export default (config = {}) => ({
             }
 
             const payload = await response.json();
+            const shouldScroll = forceScroll || (wasNearBottom && this.isNearBottom());
+
+            if (!forceSnapshot && !this.canAppend()) {
+                return;
+            }
 
             this.replaceUserDirectory(payload.users_html);
             this.replaceMessages(payload.messages_html, payload.append && !forceSnapshot, shouldScroll || forceSnapshot);
@@ -315,6 +410,8 @@ export default (config = {}) => ({
             }
         } catch (error) {
             console.error('Unable to refresh chat workspace', error);
+        } finally {
+            this.syncInProgress = false;
         }
     },
     // Helper to force a full snapshot instead of incremental append mode.
@@ -456,6 +553,82 @@ export default (config = {}) => ({
         }
 
         this.setSenderFilter(target.dataset.chatFilterUser || '');
+    },
+    handleMessageStreamClick(event) {
+        const button = event.target.closest('[data-chat-delete-message]');
+
+        if (!button || !this.$refs.messageStream?.contains(button)) {
+            return;
+        }
+
+        this.deleteMessage(
+            Number(button.dataset.chatDeleteMessage || 0),
+            button.dataset.chatDeleteUrl || '',
+            button
+        );
+    },
+    async deleteMessage(messageId, deleteUrl, button = null) {
+        if (messageId <= 0 || deleteUrl === '' || this.deletingMessages[messageId]) {
+            return;
+        }
+
+        this.deletingMessages = {
+            ...this.deletingMessages,
+            [messageId]: true,
+        };
+        button?.setAttribute('disabled', 'disabled');
+        this.sendError = '';
+
+        try {
+            const response = await fetch(deleteUrl, {
+                method: 'DELETE',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': this.csrfToken,
+                },
+            });
+
+            if (response.status === 403) {
+                this.sendError = 'You can only delete your own messages.';
+                return;
+            }
+
+            if (response.status === 404) {
+                this.removeMessageElement(messageId);
+                return;
+            }
+
+            if (!response.ok) {
+                this.sendError = 'Unable to delete the message right now.';
+                return;
+            }
+
+            const payload = await response.json().catch(() => ({}));
+
+            this.removeMessageElement(Number(payload.message_id || messageId));
+            this.showSuccess(payload.message || 'Message deleted successfully.');
+        } catch (error) {
+            this.sendError = 'A network error happened while deleting the message.';
+        } finally {
+            const nextDeletingMessages = { ...this.deletingMessages };
+            delete nextDeletingMessages[messageId];
+            this.deletingMessages = nextDeletingMessages;
+            button?.removeAttribute('disabled');
+        }
+    },
+    removeMessageElement(messageId) {
+        const message = this.$refs.messageStream?.querySelector(`[data-message-id="${messageId}"]`);
+
+        if (!message) {
+            return;
+        }
+
+        message.classList.add('chat-message-removing');
+
+        window.setTimeout(() => {
+            message.remove();
+        }, 180);
     },
     /*
      * Sends a message safely with AJAX.
