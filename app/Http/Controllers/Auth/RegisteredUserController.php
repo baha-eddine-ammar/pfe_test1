@@ -68,7 +68,6 @@ class RegisteredUserController extends Controller
                 'lowercase',
                 'email',
                 'max:255',
-                'ends_with:@draxmailer',
                 'unique:'.User::class,
             ],
             'department' => [
@@ -79,8 +78,6 @@ class RegisteredUserController extends Controller
             'phone_number' => ['required', 'string', 'max:30'],
             'department_head_key' => ['nullable', 'string', 'max:255'],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
-        ], [
-            'email.ends_with' => 'Only @draxmailer email addresses are allowed.',
         ]);
 
         // Role decision logic:

@@ -43,7 +43,7 @@ class ProfileTest extends TestCase
         $this->assertNull($user->email_verified_at);
     }
 
-    public function test_profile_email_must_keep_the_internal_domain(): void
+    public function test_profile_email_can_use_any_valid_email_address(): void
     {
         $user = User::factory()->create();
 
@@ -56,10 +56,13 @@ class ProfileTest extends TestCase
             ]);
 
         $response
-            ->assertSessionHasErrors('email')
+            ->assertSessionHasNoErrors()
             ->assertRedirect('/profile');
 
-        $this->assertSame($user->email, $user->fresh()->email);
+        $user->refresh();
+
+        $this->assertSame('external@example.com', $user->email);
+        $this->assertNull($user->email_verified_at);
     }
 
     public function test_approved_staff_can_start_the_telegram_connection_flow(): void
