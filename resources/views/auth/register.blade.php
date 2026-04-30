@@ -5,7 +5,7 @@
             Create account
         </h1>
         <p class="mt-3 text-sm leading-7 text-gray-500 dark:text-gray-400">
-            Register your department account with a valid <span class="font-semibold">@draxmailer</span> email address.
+            Register your department account with a valid email address.
         </p>
     </div>
 
