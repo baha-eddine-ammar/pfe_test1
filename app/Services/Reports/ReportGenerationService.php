@@ -13,6 +13,8 @@ use App\Services\TelegramService;
 use Carbon\Carbon;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class ReportGenerationService
@@ -81,6 +83,8 @@ class ReportGenerationService
                 'predictive_insights' => count($snapshot['predictive_insights'] ?? []),
             ], $user);
 
+        $this->sendN8nReportWebhook($report);
+
         ReportGenerated::dispatch($report);
 
         return $report;
@@ -122,6 +126,50 @@ class ReportGenerationService
         ])->save();
 
         return $summary;
+    }
+
+    private function sendN8nReportWebhook(Report $report): void
+    {
+        $webhookUrl = trim((string) config('services.n8n.report_webhook_url', ''));
+
+        if ($webhookUrl === '') {
+            return;
+        }
+
+        try {
+            $response = Http::timeout(10)->post($webhookUrl, $this->n8nReportPayload($report));
+
+            if ($response->failed()) {
+                Log::warning('n8n report webhook returned an error response.', [
+                    'report_id' => $report->id,
+                    'webhook_url' => $webhookUrl,
+                    'status' => $response->status(),
+                    'response' => Str::limit($response->body(), 500),
+                ]);
+            }
+        } catch (\Throwable $exception) {
+            Log::warning('n8n report webhook failed.', [
+                'report_id' => $report->id,
+                'webhook_url' => $webhookUrl,
+                'error' => $exception->getMessage(),
+            ]);
+        }
+    }
+
+    private function n8nReportPayload(Report $report): array
+    {
+        $overview = $report->metrics_snapshot['overview'] ?? [];
+
+        return [
+            'report_id' => $report->id,
+            'type' => $report->type,
+            'warnings' => (int) ($overview['warning_count'] ?? 0),
+            'critical' => (int) ($overview['critical_count'] ?? 0),
+            'readings' => (int) ($overview['reading_count'] ?? 0),
+            'summary' => $report->summary,
+            'report_url' => route('reports.show', $report),
+            'created_at' => $report->generated_at?->toIso8601String(),
+        ];
     }
 
     private function resolvePeriod(string $type, CarbonImmutable $referenceDate): array

@@ -73,4 +73,9 @@ return [
         'webhook_secret' => env('TELEGRAM_WEBHOOK_SECRET'),
     ],
 
+    // Optional local automation webhook used after report generation.
+    'n8n' => [
+        'report_webhook_url' => env('N8N_REPORT_WEBHOOK_URL'),
+    ],
+
 ];
