@@ -2,10 +2,10 @@
     <div class="mb-8">
         <p class="app-section-title">Onboarding</p>
         <h1 class="mt-2 font-display text-3xl font-semibold tracking-tight text-gray-900 dark:text-white">
-            Create account
+            Create staff account
         </h1>
         <p class="mt-3 text-sm leading-7 text-gray-500 dark:text-gray-400">
-            Register your department account with a valid email address.
+            Staff registration requires Department Head approval and email verification before full workspace access is granted.
         </p>
     </div>
 
@@ -44,28 +44,18 @@
         <div class="mt-4">
             <x-input-label for="phone_number" :value="__('Phone Number')" />
             <x-text-input id="phone_number" class="block mt-1 w-full" type="text" name="phone_number" :value="old('phone_number')" required autocomplete="tel" />
-            <x-input-error :messages="$errors->get('phone_number')" class="mt-2" />
-        </div>
-
-        <div class="mt-4">
-            <x-input-label for="department_head_key" :value="__('Department Head Key')" />
-            <x-text-input
-                id="department_head_key"
-                class="block mt-1 w-full"
-                type="password"
-                name="department_head_key"
-                :value="old('department_head_key')"
-                autocomplete="off"
-            />
             <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                Optional. Leave this blank unless you were given the department head key.
+                Use a reachable contact number. Allowed characters: digits, spaces, +, -, (, ).
             </p>
-            <x-input-error :messages="$errors->get('department_head_key')" class="mt-2" />
+            <x-input-error :messages="$errors->get('phone_number')" class="mt-2" />
         </div>
 
         <div class="mt-4">
             <x-input-label for="password" :value="__('Password')" />
             <x-text-input id="password" class="block mt-1 w-full" type="password" name="password" required autocomplete="new-password" />
+            <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                Choose a strong password. You will receive email updates as your registration moves forward.
+            </p>
             <x-input-error :messages="$errors->get('password')" class="mt-2" />
         </div>
 
@@ -84,5 +74,18 @@
                 {{ __('Register') }}
             </x-primary-button>
         </div>
+
+        <p class="mt-6 text-sm text-gray-500 dark:text-gray-400">
+            Have a Department Head invite?
+            <a href="{{ route('department-head.invites.landing') }}" class="app-link">Use the secure invite flow</a>
+        </p>
+
+        @if ($firstDepartmentHeadSetupAvailable)
+            <p class="mt-4 text-sm text-gray-500 dark:text-gray-400">
+                <a href="{{ route('department-head.setup.create') }}" class="app-link">
+                    First time setup? Create the first Department Head
+                </a>
+            </p>
+        @endif
     </form>
 </x-guest-layout>

@@ -29,6 +29,7 @@ use App\Models\User;
 use App\Policies\MaintenanceTaskPolicy;
 use App\Policies\MessagePolicy;
 use App\Policies\UserPolicy;
+use App\Services\LoginTwoFactorService;
 use App\Services\Reports\DatabaseSensorDataProvider;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -128,6 +129,40 @@ class AppServiceProvider extends ServiceProvider
                         ? $deviceId . '|' . $request->ip()
                         : $request->ip()
                 );
+        });
+
+        RateLimiter::for('department-head-invite-create', function (Request $request) {
+            return Limit::perMinute(5)
+                ->by($request->user()?->id ?: $request->ip());
+        });
+
+        RateLimiter::for('department-head-invite-register', function (Request $request) {
+            $invite = $request->route('departmentHeadInvite');
+            $email = Str::lower(trim((string) $request->input('email', '')));
+
+            return Limit::perMinute(5)
+                ->by(($invite?->uuid ?? 'invite').'|'.($email !== '' ? $email : 'guest').'|'.$request->ip());
+        });
+
+        RateLimiter::for('department-head-invite-reveal', function (Request $request) {
+            $invite = $request->route('departmentHeadInvite');
+
+            return Limit::perMinute(10)
+                ->by(($invite?->uuid ?? $request->path()).'|'.$request->ip());
+        });
+
+        RateLimiter::for('two-factor-verify', function (Request $request) {
+            $pendingUserId = $request->session()->get(LoginTwoFactorService::SESSION_USER_ID, 'guest');
+
+            return Limit::perMinute(10)
+                ->by($pendingUserId.'|'.$request->ip());
+        });
+
+        RateLimiter::for('two-factor-resend', function (Request $request) {
+            $pendingUserId = $request->session()->get(LoginTwoFactorService::SESSION_USER_ID, 'guest');
+
+            return Limit::perMinute(5)
+                ->by($pendingUserId.'|'.$request->ip());
         });
     }
 }

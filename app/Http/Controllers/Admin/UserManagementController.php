@@ -3,7 +3,10 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\DepartmentHeadInvite;
 use App\Models\User;
+use App\Notifications\AccountApprovedNotification;
+use App\Notifications\AccountRejectedNotification;
 use App\Services\AuditLogService;
 use App\Services\NotificationService;
 use Illuminate\Http\RedirectResponse;
@@ -19,6 +22,11 @@ class UserManagementController extends Controller
         $this->authorize('viewAny', User::class);
 
         return view('admin.users.index', [
+            'departmentHeadInvites' => DepartmentHeadInvite::query()
+                ->with(['invitedBy', 'usedBy'])
+                ->latest()
+                ->paginate(10, ['*'], 'invites_page')
+                ->withQueryString(),
             'pendingUsers' => User::query()
                 ->where('status', 'pending')
                 ->latest()
@@ -39,6 +47,8 @@ class UserManagementController extends Controller
             'status' => 'approved',
             'is_approved' => true,
         ])->save();
+
+        $user->notify(new AccountApprovedNotification(request()->user()));
 
         if (! $user->hasVerifiedEmail()) {
             $user->sendEmailVerificationNotification();
@@ -68,6 +78,8 @@ class UserManagementController extends Controller
             'status' => 'rejected',
             'is_approved' => false,
         ])->save();
+
+        $user->notify(new AccountRejectedNotification());
 
         $notificationService->notifyUser(
             $user,

@@ -22,8 +22,11 @@
 
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\ConfirmablePasswordController;
+use App\Http\Controllers\Auth\DepartmentHeadInviteRegistrationController;
 use App\Http\Controllers\Auth\EmailVerificationNotificationController;
 use App\Http\Controllers\Auth\EmailVerificationPromptController;
+use App\Http\Controllers\Auth\EmailTwoFactorChallengeController;
+use App\Http\Controllers\Auth\FirstDepartmentHeadSetupController;
 use App\Http\Controllers\Auth\NewPasswordController;
 use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\Auth\PasswordResetLinkController;
@@ -39,6 +42,30 @@ Route::middleware('guest')->group(function () {
 
     Route::post('register', [RegisteredUserController::class, 'store'])
         ->middleware('throttle:register');
+
+    Route::get('register/pending-approval', [RegisteredUserController::class, 'pending'])
+        ->name('register.pending');
+
+    Route::get('register/department-head', [DepartmentHeadInviteRegistrationController::class, 'landing'])
+        ->name('department-head.invites.landing');
+
+    Route::get('setup/department-head', [FirstDepartmentHeadSetupController::class, 'create'])
+        ->name('department-head.setup.create');
+
+    Route::post('setup/department-head', [FirstDepartmentHeadSetupController::class, 'store'])
+        ->middleware('throttle:register')
+        ->name('department-head.setup.store');
+
+    Route::get('department-head-invites/{departmentHeadInvite}/reveal/{token}', [DepartmentHeadInviteRegistrationController::class, 'reveal'])
+        ->middleware('throttle:department-head-invite-reveal')
+        ->name('department-head.invites.reveal');
+
+    Route::get('department-head-invites/{departmentHeadInvite}/register', [DepartmentHeadInviteRegistrationController::class, 'create'])
+        ->name('department-head.invites.register');
+
+    Route::post('department-head-invites/{departmentHeadInvite}/register', [DepartmentHeadInviteRegistrationController::class, 'store'])
+        ->middleware('throttle:department-head-invite-register')
+        ->name('department-head.invites.store');
 
     Route::get('login', [AuthenticatedSessionController::class, 'create'])
         ->name('login');
@@ -57,6 +84,22 @@ Route::middleware('guest')->group(function () {
 
     Route::post('reset-password', [NewPasswordController::class, 'store'])
         ->name('password.store');
+
+    Route::middleware('pending-two-factor')->group(function () {
+        Route::get('two-factor-challenge', [EmailTwoFactorChallengeController::class, 'create'])
+            ->name('two-factor.challenge');
+
+        Route::post('two-factor-challenge', [EmailTwoFactorChallengeController::class, 'store'])
+            ->middleware('throttle:two-factor-verify')
+            ->name('two-factor.verify');
+
+        Route::post('two-factor-challenge/resend', [EmailTwoFactorChallengeController::class, 'resend'])
+            ->middleware('throttle:two-factor-resend')
+            ->name('two-factor.resend');
+
+        Route::post('two-factor-challenge/cancel', [EmailTwoFactorChallengeController::class, 'destroy'])
+            ->name('two-factor.cancel');
+    });
 });
 
 // Authenticated account-security routes:

@@ -23,6 +23,113 @@
         @endif
 
         <div class="table-shell">
+            <div class="flex flex-col gap-6 border-b border-gray-200 px-6 py-5 dark:border-gray-800 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                    <h3 class="font-display text-xl font-semibold text-gray-900 dark:text-white">Department Head Invites</h3>
+                    <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                        Send one-time email invitations for Department Head onboarding. Invite codes are revealed once and can be revoked before use.
+                    </p>
+                </div>
+
+                <form method="POST" action="{{ route('admin.department-head-invites.store') }}" class="w-full max-w-md space-y-3">
+                    @csrf
+                    <div>
+                        <x-input-label for="invited_email" value="Invite email" />
+                        <x-text-input
+                            id="invited_email"
+                            class="mt-1 block w-full"
+                            type="email"
+                            name="invited_email"
+                            :value="old('invited_email')"
+                            required
+                            autocomplete="email"
+                        />
+                        <x-input-error :messages="$errors->get('invited_email')" class="mt-2" />
+                    </div>
+
+                    <div class="flex justify-end">
+                        <button type="submit" class="app-button-primary !px-5 !py-2.5 !text-sm">
+                            Send secure invite
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Email</th>
+                            <th>Invited By</th>
+                            <th>Expires</th>
+                            <th>Reveal</th>
+                            <th>Usage</th>
+                            <th>Attempts</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse ($departmentHeadInvites as $invite)
+                            <tr class="table-row-muted">
+                                <td class="font-semibold text-gray-900 dark:text-white">{{ $invite->invited_email }}</td>
+                                <td>{{ $invite->invitedBy?->name ?? 'Unknown' }}</td>
+                                <td>{{ $invite->expires_at?->format('d M Y H:i') }}</td>
+                                <td>
+                                    @if ($invite->reveal_used_at)
+                                        <span class="app-pill bg-brand-100 text-brand-700 dark:bg-brand-500/10 dark:text-brand-300">Revealed</span>
+                                    @else
+                                        <span class="app-pill bg-slate-100 text-slate-600 dark:bg-white/[0.03] dark:text-slate-300">Hidden</span>
+                                    @endif
+                                </td>
+                                <td>
+                                    @if ($invite->used_at)
+                                        <span class="app-pill bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
+                                            Used
+                                        </span>
+                                    @elseif ($invite->revoked_at)
+                                        <span class="app-pill bg-rose-100 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300">
+                                            Revoked
+                                        </span>
+                                    @elseif ($invite->expires_at?->isPast())
+                                        <span class="app-pill bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">
+                                            Expired
+                                        </span>
+                                    @else
+                                        <span class="app-pill bg-sky-100 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300">
+                                            Active
+                                        </span>
+                                    @endif
+                                </td>
+                                <td>{{ $invite->failed_attempts }}</td>
+                                <td>
+                                    @if (! $invite->used_at && ! $invite->revoked_at)
+                                        <form method="POST" action="{{ route('admin.department-head-invites.revoke', $invite) }}">
+                                            @csrf
+                                            @method('PATCH')
+                                            <button type="submit" class="app-button-secondary !px-4 !py-2 !text-xs">
+                                                Revoke
+                                            </button>
+                                        </form>
+                                    @else
+                                        <span class="text-xs font-medium uppercase tracking-[0.2em] text-gray-400 dark:text-gray-500">
+                                            No action
+                                        </span>
+                                    @endif
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="7" class="px-6 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
+                                    No Department Head invites created yet.
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="table-shell">
             <div class="flex items-center justify-between border-b border-gray-200 px-6 py-5 dark:border-gray-800">
                 <div>
                     <h3 class="font-display text-xl font-semibold text-gray-900 dark:text-white">Pending Approvals</h3>

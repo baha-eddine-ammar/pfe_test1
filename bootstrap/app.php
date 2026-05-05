@@ -20,6 +20,8 @@
 */
 
 use App\Http\Middleware\EnsureDepartmentHead;
+use App\Http\Middleware\EnsureApprovedUser;
+use App\Http\Middleware\EnsurePendingTwoFactorChallenge;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -37,8 +39,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // Custom middleware alias used in routes/web.php to protect
         // department-head-only sections.
         $middleware->alias([
+            'approved.user' => EnsureApprovedUser::class,
             'department.head' => EnsureDepartmentHead::class,
-
+            'pending-two-factor' => EnsurePendingTwoFactorChallenge::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

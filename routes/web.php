@@ -34,6 +34,7 @@
 */
 
 use App\Http\Controllers\Admin\UserManagementController;
+use App\Http\Controllers\Admin\DepartmentHeadInviteController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AIChatController;
 use App\Http\Controllers\AttachmentDownloadController;
@@ -67,23 +68,23 @@ Route::post('/telegram/webhook', [TelegramController::class, 'webhook'])->name('
 // These routes power the main monitoring page plus the JSON feeds used by the
 // dashboard charts/cards for live updates.
 Route::get('/dashboard', DashboardController::class)
-    ->middleware(['auth', 'verified'])
+    ->middleware(['auth', 'approved.user', 'verified'])
     ->name('dashboard');
 
 Route::get('/dashboard/temperature-feed', [DashboardController::class, 'temperatureFeed'])
-    ->middleware(['auth', 'verified'])
+    ->middleware(['auth', 'approved.user', 'verified'])
     ->name('dashboard.temperature');
 
 Route::get('/dashboard/humidity-feed', [DashboardController::class, 'humidityFeed'])
-    ->middleware(['auth', 'verified'])
+    ->middleware(['auth', 'approved.user', 'verified'])
     ->name('dashboard.humidity');
 
 Route::get('/dashboard/trend-feed', [DashboardController::class, 'trendFeed'])
-    ->middleware(['auth', 'verified'])
+    ->middleware(['auth', 'approved.user', 'verified'])
     ->name('dashboard.trend');
 
 Route::get('/dashboard/telemetry', [DashboardController::class, 'trendFeed'])
-    ->middleware(['auth', 'verified'])
+    ->middleware(['auth', 'approved.user', 'verified'])
     ->name('dashboard.telemetry');
 
 // Department head administration:
@@ -96,13 +97,17 @@ Route::middleware(['auth', 'verified', 'department.head'])->group(function () {
     Route::patch('/admin/users/{user}/reject', [UserManagementController::class, 'reject'])->name('admin.users.reject');
     Route::patch('/admin/users/{user}/promote', [UserManagementController::class, 'promote'])->name('admin.users.promote');
     Route::patch('/admin/users/{user}/demote', [UserManagementController::class, 'demote'])->name('admin.users.demote');
-
+    Route::post('/admin/department-head-invites', [DepartmentHeadInviteController::class, 'store'])
+        ->middleware('throttle:department-head-invite-create')
+        ->name('admin.department-head-invites.store');
+    Route::patch('/admin/department-head-invites/{departmentHeadInvite}/revoke', [DepartmentHeadInviteController::class, 'revoke'])
+        ->name('admin.department-head-invites.revoke');
 });
 
 // Authenticated user account tools:
 // Users must be logged in, but email verification is not required for these
 // profile and notification management actions.
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', 'approved.user'])->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
@@ -115,7 +120,7 @@ Route::middleware('auth')->group(function () {
 
 // Main authenticated application features:
 // Reports, chat, AI chat, calendar, knowledge base, servers, and maintenance.
-Route::middleware(['auth', 'verified'])->group(function () {
+Route::middleware(['auth', 'approved.user', 'verified'])->group(function () {
     Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
     Route::post('/reports', [ReportController::class, 'store'])->middleware('throttle:reports-generate')->name('reports.store');
     Route::get('/reports/{report}', [ReportController::class, 'show'])->name('reports.show');

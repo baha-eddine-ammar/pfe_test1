@@ -5,7 +5,7 @@
             Sign in
         </h1>
         <p class="mt-3 text-sm leading-7 text-gray-500 dark:text-gray-400">
-            Access your monitoring workspace with your approved account.
+            Approved accounts can sign in here. Staff and Department Head accounts will be asked for an email verification code after password login.
         </p>
     </div>
 
@@ -56,6 +56,10 @@
         <p class="mt-6 text-sm text-gray-500 dark:text-gray-400">
             Need an account?
             <a href="{{ route('register') }}" class="app-link">Create one</a>
+        </p>
+
+        <p class="mt-3 text-sm text-gray-500 dark:text-gray-400">
+            Pending approvals, rejected access, unverified email steps, and two-factor prompts will all be explained here when they apply.
         </p>
     </form>
 </x-guest-layout>

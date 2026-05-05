@@ -21,7 +21,7 @@ class ChatTest extends TestCase
 
         $response
             ->assertOk()
-            ->assertSeeText('Team chat workspace')
+            ->assertSeeText('Team Chat')
             ->assertSeeText('Team directory');
     }
 

@@ -3,7 +3,8 @@
 namespace Tests\Feature\Auth;
 
 use App\Models\User;
-use Illuminate\Auth\Notifications\VerifyEmail;
+use App\Notifications\NewStaffRegistrationNotification;
+use App\Notifications\PendingApprovalNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
@@ -23,6 +24,8 @@ class RegistrationTest extends TestCase
     {
         Notification::fake();
 
+        $admin = User::factory()->departmentHead()->create();
+
         $response = $this->post('/register', [
             'name' => 'Test User',
             'email' => 'test.user@gmail.com',
@@ -33,8 +36,7 @@ class RegistrationTest extends TestCase
         ]);
 
         $this->assertGuest();
-        $response->assertRedirect(route('login', absolute: false));
-        $response->assertSessionHas('status', 'Your account is pending approval.');
+        $response->assertRedirect(route('register.pending', absolute: false));
         $this->assertDatabaseHas('users', [
             'email' => 'test.user@gmail.com',
             'department' => 'Systems',
@@ -44,35 +46,30 @@ class RegistrationTest extends TestCase
             'is_approved' => false,
         ]);
         $this->assertFalse(User::query()->where('email', 'test.user@gmail.com')->first()->hasVerifiedEmail());
-        Notification::assertNothingSent();
+        Notification::assertSentTo(User::query()->where('email', 'test.user@gmail.com')->first(), PendingApprovalNotification::class);
+        Notification::assertSentTo($admin, NewStaffRegistrationNotification::class);
     }
 
-    public function test_valid_department_head_key_creates_an_approved_department_head(): void
+    public function test_pending_staff_can_not_access_dashboard_until_approved_and_verified(): void
     {
-        config()->set('services.registration.department_head_key', '123456789');
-        Notification::fake();
-
-        $response = $this->post('/register', [
-            'name' => 'Head User',
-            'email' => 'head@draxmailer',
-            'department' => 'Network',
-            'phone_number' => '0698765432',
-            'department_head_key' => '123456789',
-            'password' => 'password',
-            'password_confirmation' => 'password',
+        $pendingStaff = User::factory()->pending()->create([
+            'role' => 'staff',
         ]);
 
-        $user = User::query()->where('email', 'head@draxmailer')->first();
+        $this->actingAs($pendingStaff)
+            ->get(route('dashboard'))
+            ->assertRedirect(route('login'));
+    }
 
-        $this->assertAuthenticatedAs($user);
-        $response->assertRedirect(route('dashboard', absolute: false));
-        $this->assertDatabaseHas('users', [
-            'email' => 'head@draxmailer',
-            'role' => 'department_head',
+    public function test_approved_but_unverified_staff_are_redirected_to_email_verification_notice(): void
+    {
+        $user = User::factory()->unverified()->create([
             'status' => 'approved',
             'is_approved' => true,
         ]);
-        $this->assertTrue($user->fresh()->hasVerifiedEmail());
-        Notification::assertNotSentTo($user, VerifyEmail::class);
+
+        $this->actingAs($user)
+            ->get(route('dashboard'))
+            ->assertRedirect(route('verification.notice'));
     }
 }

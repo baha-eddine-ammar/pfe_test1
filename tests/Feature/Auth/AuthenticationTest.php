@@ -3,7 +3,9 @@
 namespace Tests\Feature\Auth;
 
 use App\Models\User;
+use App\Notifications\LoginTwoFactorCodeNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
 class AuthenticationTest extends TestCase
@@ -17,9 +19,12 @@ class AuthenticationTest extends TestCase
         $response->assertStatus(200);
     }
 
-    public function test_approved_users_can_authenticate_using_the_login_screen(): void
+    public function test_approved_staff_are_redirected_to_the_two_factor_challenge_after_password_login(): void
     {
+        Notification::fake();
+
         $user = User::factory()->create([
+            'role' => 'staff',
             'status' => 'approved',
             'is_approved' => true,
         ]);
@@ -29,14 +34,18 @@ class AuthenticationTest extends TestCase
             'password' => 'password',
         ]);
 
-        $this->assertAuthenticated();
-        $response->assertRedirect(route('dashboard', absolute: false));
+        $this->assertGuest();
+        $response->assertRedirect(route('two-factor.challenge', absolute: false));
+        Notification::assertSentTo($user, LoginTwoFactorCodeNotification::class);
     }
 
-    public function test_approved_users_can_authenticate_with_mixed_case_email_input(): void
+    public function test_approved_users_can_start_two_factor_with_mixed_case_email_input(): void
     {
+        Notification::fake();
+
         $user = User::factory()->create([
             'email' => 'mixed.case@draxmailer',
+            'role' => 'staff',
             'status' => 'approved',
             'is_approved' => true,
         ]);
@@ -46,13 +55,17 @@ class AuthenticationTest extends TestCase
             'password' => 'password',
         ]);
 
-        $this->assertAuthenticatedAs($user);
-        $response->assertRedirect(route('dashboard', absolute: false));
+        $this->assertGuest();
+        $response->assertRedirect(route('two-factor.challenge', absolute: false));
+        Notification::assertSentTo($user, LoginTwoFactorCodeNotification::class);
     }
 
     public function test_pending_users_can_not_authenticate(): void
     {
+        Notification::fake();
+
         $user = User::factory()->create([
+            'role' => 'staff',
             'status' => 'pending',
             'is_approved' => false,
         ]);
@@ -67,11 +80,18 @@ class AuthenticationTest extends TestCase
         $response->assertSessionHasErrors([
             'email' => 'Your account is pending approval.',
         ]);
+        $this->assertDatabaseMissing('login_two_factor_challenges', [
+            'user_id' => $user->id,
+        ]);
+        Notification::assertNotSentTo($user, LoginTwoFactorCodeNotification::class);
     }
 
     public function test_rejected_users_can_not_authenticate(): void
     {
+        Notification::fake();
+
         $user = User::factory()->create([
+            'role' => 'staff',
             'status' => 'rejected',
             'is_approved' => false,
         ]);
@@ -86,6 +106,10 @@ class AuthenticationTest extends TestCase
         $response->assertSessionHasErrors([
             'email' => 'Your account does not currently have access.',
         ]);
+        $this->assertDatabaseMissing('login_two_factor_challenges', [
+            'user_id' => $user->id,
+        ]);
+        Notification::assertNotSentTo($user, LoginTwoFactorCodeNotification::class);
     }
 
     public function test_users_can_not_authenticate_with_invalid_password(): void
@@ -98,6 +122,22 @@ class AuthenticationTest extends TestCase
         ]);
 
         $this->assertGuest();
+    }
+
+    public function test_department_heads_are_redirected_to_the_two_factor_challenge_after_password_login(): void
+    {
+        Notification::fake();
+
+        $user = User::factory()->departmentHead()->create();
+
+        $response = $this->post('/login', [
+            'email' => $user->email,
+            'password' => 'password',
+        ]);
+
+        $this->assertGuest();
+        $response->assertRedirect(route('two-factor.challenge', absolute: false));
+        Notification::assertSentTo($user, LoginTwoFactorCodeNotification::class);
     }
 
     public function test_users_can_logout(): void

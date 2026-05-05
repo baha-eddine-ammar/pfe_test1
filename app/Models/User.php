@@ -36,6 +36,7 @@
     use Illuminate\Database\Eloquent\Factories\HasFactory;
     use Illuminate\Database\Eloquent\Builder;
     use Illuminate\Database\Eloquent\Relations\HasMany;
+    use Illuminate\Database\Eloquent\Relations\HasOne;
     use Illuminate\Foundation\Auth\User as Authenticatable;
     use Illuminate\Notifications\Notifiable;
     use Illuminate\Support\Str;
@@ -86,6 +87,7 @@
             return [
                 // Carbon object used by Laravel auth/profile features.
                 'email_verified_at' => 'datetime',
+                'last_login_at' => 'datetime',
                 'is_approved' => 'boolean',
                 'password' => 'hashed',
             ];
@@ -229,5 +231,20 @@
         public function userNotifications(): HasMany
         {
             return $this->hasMany(UserNotification::class);
+        }
+
+        public function departmentHeadInvitesCreated(): HasMany
+        {
+            return $this->hasMany(DepartmentHeadInvite::class, 'invited_by_user_id');
+        }
+
+        public function departmentHeadInvitesUsed(): HasMany
+        {
+            return $this->hasMany(DepartmentHeadInvite::class, 'used_by_user_id');
+        }
+
+        public function loginTwoFactorChallenge(): HasOne
+        {
+            return $this->hasOne(LoginTwoFactorChallenge::class);
         }
     }

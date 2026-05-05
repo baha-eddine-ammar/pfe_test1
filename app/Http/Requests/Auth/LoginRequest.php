@@ -2,10 +2,10 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Services\AuditLogService;
 use App\Models\User;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
@@ -45,7 +45,7 @@ class LoginRequest extends FormRequest
      *
      * @throws \Illuminate\Validation\ValidationException
      */
-    public function authenticate(): void
+    public function authenticate(): User
     {
         $this->ensureIsNotRateLimited();
 
@@ -63,6 +63,12 @@ class LoginRequest extends FormRequest
 
         if (! $user || ! $passwordMatches) {
             RateLimiter::hit($this->throttleKey());
+            app(AuditLogService::class)->record('auth.login.failed', $user ?? User::class, [
+                'email' => $email,
+                'ip' => $this->ip(),
+                'user_agent' => (string) $this->userAgent(),
+                'reason' => 'invalid_credentials',
+            ]);
 
             throw ValidationException::withMessages([
                 'email' => trans('auth.failed'),
@@ -77,6 +83,12 @@ class LoginRequest extends FormRequest
 
         if (! $user->hasApprovedStatus()) {
             RateLimiter::hit($this->throttleKey());
+            app(AuditLogService::class)->record('auth.login.denied', $user, [
+                'email' => $email,
+                'ip' => $this->ip(),
+                'user_agent' => (string) $this->userAgent(),
+                'status' => $user->statusLabel(),
+            ], $user);
 
             throw ValidationException::withMessages([
                 'email' => $user->statusLabel() === 'pending'
@@ -85,9 +97,9 @@ class LoginRequest extends FormRequest
             ]);
         }
 
-        Auth::login($user, $this->boolean('remember'));
-
         RateLimiter::clear($this->throttleKey());
+
+        return $user;
     }
 
     /**

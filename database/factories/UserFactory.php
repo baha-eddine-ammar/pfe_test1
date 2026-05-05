@@ -46,4 +46,21 @@ class UserFactory extends Factory
             'email_verified_at' => null,
         ]);
     }
+
+    public function pending(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'status' => 'pending',
+            'is_approved' => false,
+        ]);
+    }
+
+    public function departmentHead(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'role' => 'department_head',
+            'status' => 'approved',
+            'is_approved' => true,
+        ]);
+    }
 }

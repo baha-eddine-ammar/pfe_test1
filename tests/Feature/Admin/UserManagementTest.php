@@ -6,6 +6,8 @@ use App\Models\User;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
+use App\Notifications\AccountApprovedNotification;
+use App\Notifications\AccountRejectedNotification;
 use Tests\TestCase;
 
 class UserManagementTest extends TestCase
@@ -64,6 +66,26 @@ class UserManagementTest extends TestCase
             'is_approved' => true,
         ]);
         Notification::assertSentTo($pendingUser, VerifyEmail::class);
+        Notification::assertSentTo($pendingUser, AccountApprovedNotification::class);
+    }
+
+    public function test_department_head_can_reject_a_pending_user_and_send_email(): void
+    {
+        Notification::fake();
+
+        $admin = User::factory()->departmentHead()->create();
+        $pendingUser = User::factory()->pending()->create();
+
+        $this->actingAs($admin)
+            ->patch(route('admin.users.reject', $pendingUser))
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('users', [
+            'id' => $pendingUser->id,
+            'status' => 'rejected',
+            'is_approved' => false,
+        ]);
+        Notification::assertSentTo($pendingUser, AccountRejectedNotification::class);
     }
 
     public function test_department_head_can_promote_and_demote_users(): void
