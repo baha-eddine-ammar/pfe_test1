@@ -49,6 +49,23 @@
     // Trend metadata for each environmental metric.
     $temperatureTrend = $buildTrendMeta($trendData['temperature']);
     $humidityTrend = $buildTrendMeta($trendData['humidity']);
+    $powerTrend = $buildTrendMeta($trendData['power'] ?? []);
+
+    $latestPowerReading = $trendData['latest']['power_reading'] ?? null;
+    $latestPowerCreatedAt = $latestPowerReading['created_at'] ?? null;
+    $powerIsStale = $latestPowerCreatedAt
+        ? \Carbon\Carbon::parse($latestPowerCreatedAt)->lt(now()->subSeconds(15))
+        : false;
+    $powerValue = $latestPowerReading['power_w'] ?? null;
+    $powerStatus = $latestPowerReading
+        ? ($powerIsStale ? 'Stale' : 'Live')
+        : 'Awaiting Sensor';
+    $powerProgress = $powerValue !== null
+        ? max(0, min(100, ((float) $powerValue / 2500) * 100))
+        : 0;
+    $powerTarget = $latestPowerReading
+        ? 'Voltage '.number_format((float) $latestPowerReading['voltage_v'], 1).' V / Current '.number_format((float) $latestPowerReading['current_a'], 2).' A'
+        : 'Sensor feed not connected yet';
 
     // $metricCards is the main source used by the top KPI card grid.
     // Data comes from DashboardController payloads plus local view formatting.
@@ -99,17 +116,17 @@
         [
             'title' => 'Power Usage',
             'subtitle' => 'UPS and rack draw',
-            'value' => null,
-            'status' => 'Awaiting Sensor',
-            'ringDegrees' => 0,
-            'unit' => '%',
-            'feedUrl' => null,
+            'value' => $powerValue,
+            'status' => $powerStatus,
+            'ringDegrees' => round(($powerProgress / 100) * 360),
+            'unit' => 'W',
+            'feedUrl' => route('dashboard.telemetry'),
             'stableColor' => '#F59E0B',
             'icon' => 'power',
-            'target' => 'Sensor feed not connected yet',
-            'sparkline' => [],
-            'trend' => ['percent' => 0, 'direction' => 'flat'],
-            'empty' => true,
+            'target' => $powerTarget,
+            'sparkline' => $trendData['power'] ?? [],
+            'trend' => $powerTrend,
+            'empty' => ! $latestPowerReading,
         ],
     ];
 
@@ -407,12 +424,14 @@
          */
         window.liveMetricCard = window.liveMetricCard || function (config) {
             return {
+                title: config.title || '',
                 value: Number(config.initialValue),
                 status: config.initialStatus,
                 ringDegrees: Number(config.initialRingDegrees),
                 unit: config.unit,
                 feedUrl: config.feedUrl,
                 stableColor: config.stableColor,
+                target: config.target,
                 sparkline: Array.isArray(config.sparkline) ? [...config.sparkline] : [],
                 trendPercent: Number(config.initialTrendPercent || 0),
                 trendDirection: config.initialTrendDirection || 'flat',
@@ -437,8 +456,8 @@
                     }
 
                     return {
-                        'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300': this.status === 'Stable',
-                        'bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300': this.status === 'Warning',
+                        'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300': ['Live', 'Stable'].includes(this.status),
+                        'bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300': ['Warning', 'Stale'].includes(this.status),
                         'bg-rose-100 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300': this.status === 'Critical',
                     };
                 },
@@ -480,6 +499,46 @@
                     return `background:
                         radial-gradient(circle at top right, ${color}1E, transparent 34%),
                         radial-gradient(circle at bottom left, ${color}18, transparent 30%);`;
+                },
+                metricKey() {
+                    const title = this.title.toLowerCase();
+
+                    if (title === 'temperature') {
+                        return 'temperature';
+                    }
+
+                    if (title === 'humidity') {
+                        return 'humidity';
+                    }
+
+                    if (title.includes('power')) {
+                        return 'power';
+                    }
+
+                    return title;
+                },
+                isPowerReadingStale(reading) {
+                    if (!reading?.created_at) {
+                        return true;
+                    }
+
+                    const sampledAt = new Date(reading.created_at);
+
+                    if (Number.isNaN(sampledAt.getTime())) {
+                        return true;
+                    }
+
+                    return (Date.now() - sampledAt.getTime()) > 15000;
+                },
+                formatPowerTarget(reading) {
+                    if (!reading) {
+                        return 'Sensor feed not connected yet';
+                    }
+
+                    const voltage = Number(reading.voltage_v ?? 0).toFixed(1);
+                    const current = Number(reading.current_a ?? 0).toFixed(2);
+
+                    return `Voltage ${voltage} V / Current ${current} A`;
                 },
                 progressStyle() {
                     if (this.empty) {
@@ -532,7 +591,7 @@
                         return;
                     }
 
-                    const metricKey = this.title.toLowerCase();
+                    const metricKey = this.metricKey();
                     const series = payload.trend?.[metricKey];
 
                     if (!Array.isArray(series) || series.length === 0) {
@@ -553,6 +612,13 @@
                             ? 'Critical'
                             : ((nextValue >= 60 || nextValue <= 35) ? 'Warning' : 'Stable');
                         this.ringDegrees = Math.round((Math.max(0, Math.min(100, nextValue)) / 100) * 360);
+                    }
+
+                    if (metricKey === 'power') {
+                        const powerReading = payload.trend.latest?.power_reading;
+                        this.status = this.isPowerReadingStale(powerReading) ? 'Stale' : 'Live';
+                        this.ringDegrees = Math.round((Math.max(0, Math.min(100, (nextValue / 2500) * 100)) / 100) * 360);
+                        this.target = this.formatPowerTarget(powerReading);
                     }
 
                     this.sparkline = series.slice(-10);

@@ -60,12 +60,14 @@
         using the metric's individual feed URL.
     --}}
     x-data="liveMetricCard({
+        title: {{ json_encode($title) }},
         initialValue: {{ json_encode($value) }},
         initialStatus: {{ json_encode($status) }},
         initialRingDegrees: {{ json_encode($ringDegrees) }},
         unit: {{ json_encode($unit) }},
         feedUrl: {{ json_encode($feedUrl) }},
         stableColor: {{ json_encode($stableColor) }},
+        target: {{ json_encode($target) }},
         sparkline: @js($sparkline),
         initialTrendPercent: {{ json_encode($trend['percent'] ?? 0) }},
         initialTrendDirection: {{ json_encode($trend['direction'] ?? 'flat') }},
@@ -167,7 +169,7 @@
         </div>
 
         @if ($target)
-            <p class="mt-5 text-sm leading-6 text-slate-500 dark:text-slate-400">{{ $target }}</p>
+            <p class="mt-5 text-sm leading-6 text-slate-500 dark:text-slate-400" x-text="target">{{ $target }}</p>
         @endif
 
         {{--

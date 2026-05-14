@@ -33,6 +33,10 @@ const statusClass = (status) => {
         return 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300';
     }
 
+    if (status === 'Stale') {
+        return 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-300';
+    }
+
     if (status === 'Critical') {
         return 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-500/20 dark:bg-rose-500/10 dark:text-rose-300';
     }
@@ -55,11 +59,21 @@ function LiveMetricCard({ initial }) {
             }
 
             const title = metric.title.toLowerCase();
-            const value = title === 'temperature'
-                ? trend.latest.temperature
+            const metricKey = title === 'temperature'
+                ? 'temperature'
                 : title === 'humidity'
+                    ? 'humidity'
+                    : title.includes('power')
+                        ? 'power'
+                        : null;
+
+            const value = metricKey === 'temperature'
+                ? trend.latest.temperature
+                : metricKey === 'humidity'
                     ? trend.latest.humidity
-                    : null;
+                    : metricKey === 'power'
+                        ? trend.latest.power
+                        : null;
 
             if (value === null || value === undefined) {
                 return;
@@ -68,9 +82,10 @@ function LiveMetricCard({ initial }) {
             setMetric((current) => ({
                 ...current,
                 value,
-                sparkline: Array.isArray(trend[title]) ? trend[title].slice(-10) : current.sparkline,
-                status: resolveEnvironmentStatus(title, value),
-                ringDegrees: resolveEnvironmentRingDegrees(title, value),
+                sparkline: Array.isArray(trend[metricKey]) ? trend[metricKey].slice(-10) : current.sparkline,
+                status: resolveEnvironmentStatus(metricKey, value, trend.latest.power_reading),
+                ringDegrees: resolveEnvironmentRingDegrees(metricKey, value),
+                target: metricKey === 'power' ? formatPowerTarget(trend.latest.power_reading) : current.target,
                 empty: false,
             }));
             flash(setPulse);
@@ -128,7 +143,7 @@ function LiveMetricCard({ initial }) {
                         <div className="h-full rounded-full transition-all duration-500" style={{ width: `${progress}%`, background: `linear-gradient(90deg, ${metric.stableColor || '#465FFF'}, #22d3ee)` }} />
                     </div>
                     <div className="mt-3 flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400 dark:text-slate-500">
-                        <span>{empty ? 'Awaiting real sensor feed' : 'WebSocket live feed'}</span>
+                        <span>{empty ? 'Awaiting real sensor feed' : metric.title.toLowerCase().includes('power') ? 'Live power feed' : 'WebSocket live feed'}</span>
                         <span>{metric.status}</span>
                     </div>
                 </div>
@@ -437,13 +452,17 @@ function MetricIcon({ icon }) {
     return <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7"><path d="M12 4a2 2 0 00-2 2v7.6a4 4 0 104 0V6a2 2 0 00-2-2z" /><path d="M12 11v5" strokeLinecap="round" /></svg>;
 }
 
-function resolveEnvironmentStatus(metric, value) {
+function resolveEnvironmentStatus(metric, value, powerReading = null) {
     if (metric === 'temperature') {
         return value >= 30 ? 'Critical' : value >= 25 ? 'Warning' : 'Stable';
     }
 
     if (metric === 'humidity') {
         return value >= 70 || value <= 30 ? 'Critical' : value >= 60 || value <= 35 ? 'Warning' : 'Stable';
+    }
+
+    if (metric === 'power') {
+        return isPowerReadingStale(powerReading) ? 'Stale' : 'Live';
     }
 
     return 'Stable';
@@ -458,7 +477,36 @@ function resolveEnvironmentRingDegrees(metric, value) {
         return Math.round((clamp(value) / 100) * 360);
     }
 
+    if (metric === 'power') {
+        return Math.round((clamp((Number(value) / 2500) * 100) / 100) * 360);
+    }
+
     return 0;
+}
+
+function isPowerReadingStale(reading) {
+    if (!reading?.created_at) {
+        return true;
+    }
+
+    const sampledAt = new Date(reading.created_at);
+
+    if (Number.isNaN(sampledAt.getTime())) {
+        return true;
+    }
+
+    return Date.now() - sampledAt.getTime() > 15000;
+}
+
+function formatPowerTarget(reading) {
+    if (!reading) {
+        return 'Sensor feed not connected yet';
+    }
+
+    const voltage = Number(reading.voltage_v ?? 0).toFixed(1);
+    const current = Number(reading.current_a ?? 0).toFixed(2);
+
+    return `Voltage ${voltage} V / Current ${current} A`;
 }
 
 function flash(setter) {
